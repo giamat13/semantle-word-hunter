@@ -16,6 +16,7 @@ import argparse
 import copy
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -42,6 +43,13 @@ HEADERS = {"X-SH-Version": "2023-09-10"}
 KNOWLEDGE_PATH = Path(__file__).with_name("knowledge.json")
 API_ERRORS = (anthropic.APIStatusError,) if anthropic else ()
 STALL_LIMIT = 5  # consecutive Claude rounds with zero accepted words before giving up
+# Effort experiments: now and then a round runs above the effort the supervisor chose, so the record shows what
+# effort is really worth. Random, so the comparison is fair; capped, so the cost stays small.
+EXPERIMENT_CHANCE = 0.5   # chance that an eligible round becomes an experiment
+EXPERIMENT_SAMPLES = 8    # a level with this many recorded rounds needs no more experiments
+MAX_EXPERIMENTS = 2       # per game
+EXPERIMENT_CEILING = "high"
+rng = random.Random()
 MIN_GUESSES, MAX_GUESSES = 1, 10  # the model chooses the round size inside these bounds
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 HAIKU_THINKING_BUDGET = 8000  # Haiku 4.5 has no adaptive thinking; the other models think adaptively
@@ -627,7 +635,10 @@ Use it.
 - If raising effort rarely led to progress, do not lean on it; if a scout budget rarely did, do not lean on that.
 - If one of your lessons says you acted too late, too early or pointlessly, act on it now.
 - Your decisions in the current game are listed with what followed each one. Do not repeat a change that
-  just failed to help."""
+  just failed to help.
+- To learn what effort is worth, the program sometimes runs a round ONE OR TWO LEVELS ABOVE the effort you chose,
+  at random, and marks it as an experiment. Those rounds are not your decisions. The statistics you are shown
+  include them, so use them: if higher effort clearly helped, raise it sooner; if it made no difference, do not."""
 
 REFLECT_SCHEMA = {
     "type": "object",
@@ -673,6 +684,10 @@ def scout_choices(args, local: list[dict]) -> list[tuple[str, str]]:
     for m in local:
         add(m["id"], "a local model on this computer: free to run, usually weaker")
     return list(out.items())
+
+
+def experiment_note(r: dict) -> str:
+    return f" [experiment: you chose {r['chosen_effort']}]" if r.get("experiment") else ""
 
 
 def decision_text(log: list[dict]) -> str:
@@ -729,6 +744,14 @@ def supervisor_digest(know: dict, game: dict) -> str:
     if more_scouts:
         parts.append(f"You added scouts {len(more_scouts)} times; the very next round improved after "
                      f"{sum(1 for d in more_scouts if d['outcome']['improved'])} of them.")
+    exp = [r for g in past for r in g.get("rounds", []) if r.get("experiment")]
+    if exp:
+        base = [r for g in past for r in g.get("rounds", [])
+                if r.get("effort") and not r.get("experiment") and r.get("stalled_before") == 0 and r.get("n", 0) >= 2]
+        rate = lambda rs: f"{100 * sum(1 for r in rs if r['improved']) // len(rs)}%" if rs else "no data"
+        parts.append(f"Effort experiments (random rounds above the effort you chose): {len(exp)} rounds, "
+                     f"{rate(exp)} improved the best score or rank; comparable normal rounds (not the first, no "
+                     f"stall): {len(base)}, {rate(base)} improved.")
     solved = [guess_count(g) for g in past if g.get("solved")]
     if solved:
         parts.append("Guesses needed in solved games: " + ", ".join(map(str, solved)) + ".")
@@ -743,7 +766,7 @@ def reflect_supervisor(client, args, game: dict, know: dict) -> list[str]:
     def budget(r):
         b = r.get("budget")
         return f", scouts {b['subagents']} on {b.get('model') or b.get('tier')}" if b else ""
-    rounds = "\n".join(f"round {r['n']}: {'effort ' + r['effort'] if r.get('effort') else 'no effort levels'}{budget(r)}, "
+    rounds = "\n".join(f"round {r['n']}: {'effort ' + r['effort'] if r.get('effort') else 'no effort levels'}{budget(r)}{experiment_note(r)}, "
                        f"best similarity {r['best_after']:.1f}, "
                        f"{'improved' if r['improved'] else 'no gain'}" for r in game.get("rounds", []))
     earlier = know.get("supervisor_lessons", [])[-10:]
@@ -791,6 +814,23 @@ class Supervisor:
             self.local = []
         self.thread: threading.Thread | None = None
         self.verdict: dict | None = None
+
+    def maybe_experiment(self, effort: str, stalled: int, done: int) -> str | None:
+        """An effort level above `effort` to try this round, or None. Only on quiet rounds (no stall, which is when
+        the supervisor would be raising effort for real), never above the ceiling, never more than twice a game,
+        and only for levels with too few recorded rounds to say what they are worth."""
+        if done >= MAX_EXPERIMENTS or stalled > 0 or effort not in EFFORTS:
+            return None
+        above = EFFORTS[EFFORTS.index(effort) + 1: EFFORTS.index(EXPERIMENT_CEILING) + 1]
+        counts: dict[str, int] = defaultdict(int)
+        for g in self.know["games"]:  # earlier games and this one: `know` is the view that includes the current game
+            for r in g.get("rounds", []):
+                if r.get("effort"):
+                    counts[r["effort"]] += 1
+        need = [e for e in above if counts[e] < EXPERIMENT_SAMPLES]
+        if not need or rng.random() >= EXPERIMENT_CHANCE:
+            return None
+        return min(need, key=lambda e: (counts[e], EFFORTS.index(e)))
 
     def _models_text(self, budget: dict) -> str:
         fixed = [what for what, is_fixed in (("the number of scouts", self.args.subagents != "auto"),
@@ -1008,8 +1048,15 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                 if history:
                     supervisor.review(history, best_per_round, effort, thresholds, budget)
             scout_model = budget["model"]
+            stalled_now = stall_rounds(best_per_round)
+            tried = None  # an effort experiment: this round runs above the supervisor's choice
+            if supervisor and args.experiments and effort_ok(args.model) and history:
+                tried = supervisor.maybe_experiment(effort, stalled_now, sum(1 for r in rounds if r.get("experiment")))
+            round_effort = tried or effort
+            if tried:
+                emit({"type": "experiment", "chosen": effort, "tried": tried})
             levels = effort_ok(args.model)  # models without effort levels (Haiku, most local models) show none
-            shown_effort = effort if levels else None
+            shown_effort = round_effort if levels else None
             emit({"type": "waiting", "effort": shown_effort, "model": args.model, "budget": dict(budget)})
             scouts = run_scouts(client, args, history, rejected, thresholds, emit, budget["subagents"], scout_model)
             prev_best = max((h["similarity"] for h in history), default=None)
@@ -1017,7 +1064,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
             accepted: list[dict] = []
             data = call_model(client, args, SYSTEM,
                                build_prompt(memory, history, rejected, thresholds, scouts),
-                               SCHEMA, effort)
+                               SCHEMA, round_effort)
             emit({"type": "reasoning", "text": data["reasoning"], "guesses": data["guesses"],
                   "effort": shown_effort, "model": args.model, "budget": dict(budget), "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens")})
             progressed = False
@@ -1057,11 +1104,15 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                 rounds.append({"n": len(rounds) + 1, "model": args.model, "effort": shown_effort, "improved": improved,
                                "best_after": best_after, "rank_after": rank_after,
                                "size": len(accepted), "asked": len(data["guesses"]),
+                               "experiment": bool(tried), "chosen_effort": effort if tried else None,
+                               "stalled_before": stalled_now,
                                "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens"),
                                "budget": {"subagents": budget["subagents"], "model": scout_model},
                                "scouts": scout_use})
                 for d in sup_log:  # the first decision at this effort that has not been judged yet gets its outcome
-                    if d["outcome"] is None and d["effort"] == effort and d["after_round"] < rounds[-1]["n"]:
+                    # an experiment round says nothing about the supervisor's decision, so it is not judged
+                    if (d["outcome"] is None and d["effort"] == effort and d["after_round"] < rounds[-1]["n"]
+                            and not tried):
                         d["outcome"] = {"round": rounds[-1]["n"], "improved": improved,
                                         "gain": round(best_after - (prev_best if prev_best is not None else best_after), 2)}
                         break
@@ -1147,6 +1198,8 @@ def make_cli_emit(verbose: bool):
             print(f"  summary: {ev.get('summary', '')}")
             for lesson in ev["lessons"]:
                 print(f"  lesson: {lesson}")
+        elif t == "experiment":
+            print(f"  [experiment] effort {ev['chosen']} chosen, this round runs at {ev['tried']} to gather data")
         elif t == "supervisor_lessons":
             for lesson in ev["lessons"]:
                 print(f"  supervisor lesson: {lesson}")
@@ -1168,6 +1221,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--supervisor", default="haiku",
                    help="model that watches the game in the background and adjusts the solver's effort "
                         "(alias or model ID; 'off' disables; no effect when the solver itself is Haiku)")
+    p.add_argument("--no-experiments", dest="experiments", action="store_false",
+                   help="turn off effort experiments (by default a round sometimes runs one or two effort levels "
+                        "above the supervisor's choice, at random, to learn what effort is worth)")
     p.add_argument("--subagents", default="auto", choices=["auto", "0", "1", "2", "3"],
                    help="scouts that explore in parallel each round and feed the solver proposals "
                         "(field-scout, neighbour-scout, triangulator). A number is fixed for the whole game "

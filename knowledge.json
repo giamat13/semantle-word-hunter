@@ -1,7 +1,556 @@
 {
  "version": 1,
  "rejected": [],
- "games": [],
+ "games": [
+  {
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "sonnet",
+   "solved": true,
+   "secret": "תבוסה",
+   "lessons": [
+    "When a ranked word is an outcome or state (like ניצחון), guess its direct opposite early, because opposites score very high in this embedding.",
+    "Use broad abstract probes such as מלחמה early. One strong conflict or emotion word identified the field faster than many concrete nouns (body, food, animal) that all scored under 25.",
+    "Do not trust isolated mid scores of 34-37 for concrete words (לחם, אש). Treat them as noise until a second word from the same field confirms them.",
+    "Once a field is found, probe its sub-roles (battle, army, enemy, victory) and then the outcome and its opposite. This took only about 6 guesses from the first rank to the answer."
+   ],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto"
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 34.95,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 34.95,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 55.41,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 58.34,
+     "rank_after": 282,
+     "size": 10,
+     "asked": 10,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 73.81,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 63.33,
+     "rank_after": 797,
+     "size": 6,
+     "asked": 6,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 2,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 138.89,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 5,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 100.0,
+     "rank_after": 1000,
+     "size": 2,
+     "asked": 5,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 2,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 1,
+       "sum_sim": 46.87,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early-game broad exploration needs quick, shallow thinking and minimal help; one scout on the small model will assist with initial semantic probing without wasting resources.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Just improved in round 1; early exploration with broad probes should stay lean to avoid waste while the current strategy is still working.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "low",
+     "effort": "low",
+     "reason": "After 1 stalled round with no improvement, increase scouts from 1 to 2 on haiku to explore more parallel semantic directions; exploration stalls need breadth, not deeper thinking.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 2,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 3,
+      "improved": true,
+      "gain": 23.39
+     }
+    },
+    {
+     "after_round": 4,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Player just improved after 2-round stall; reduce scout support from 2 to 1 per save-when-improving principle while maintaining haiku to sustain breakthrough momentum.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 2,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 5,
+      "improved": true,
+      "gain": 36.67
+     }
+    }
+   ],
+   "summary": "The secret word was תבוסה (defeat), found in 34 guesses. It belongs to the war/conflict/outcome field. The first 20 guesses were spread across unrelated fields (body, animal, food, home, time, nature) and scored 8-35, with no rank. The turning point was מלחמה (58.3, rank 282), which showed the field was war. Then קרב scored 53.8, צבא 48.6 and סכסוך 43.9. ניצחון (63.3, rank 797) was the closest word, and its opposite תבוסה was the answer. About 20 guesses went on random exploration, and the \"bread/fire\" scores of 34-35 were misleading noise. The answer was the antonym of the best-ranked word.",
+   "supervisor_lessons_written": [
+    "Self-assessment of a game: effort about right, scouts about right.",
+    "Don't reduce scouts on a single round of improvement; keep scouts high until 2–3 consecutive rounds of strong progress to avoid gambling with search power near the finish.",
+    "Scout bumps at the 1-stall-round mark work well: keep this pattern of early, modest scout increases rather than waiting for prolonged plateaus.",
+    "Low effort with rising scouts handles search-strategy failures; reserve effort increases for sustained low-rank plateaus lasting 3+ rounds where reasoning depth matters more."
+   ],
+   "guess_count": 34,
+   "best_similarity": 100.0,
+   "best_rank": 1000
+  },
+  {
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto"
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 34.95,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 34.95,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 5,
+       "sum_sim": 68.31,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 58.34,
+     "rank_after": 282,
+     "size": 8,
+     "asked": 8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 1,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 5,
+       "sum_sim": 75.01,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 58.34,
+     "rank_after": 282,
+     "size": 4,
+     "asked": 4,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 2,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 143.55,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 143.55,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early exploration with broad probes needs light thinking and minimal scout support; one cheap haiku scout helps with initial word diversity without wasting resources on triangulation before we have data.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Player just improved the best score in round 1; maintain the lean early-exploration settings that just proved effective (prior change from 3 scouts to 1 led to improvement).",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Mild stall (1 round, no gain) with similarity far below reference; need to broaden exploration strategy, not increase thinking. Two scouts on haiku will explore different semantic angles cheaply.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 2,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 3,
+      "improved": true,
+      "gain": 23.39
+     }
+    },
+    {
+     "after_round": 3,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Player just improved (35.0 to 58.3). In early exploration with momentum, save resources by reducing scouts from 2 to 1 on haiku while keeping effort low.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 2,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 4,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 4,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Guesses cluster around military semantics with no progress in 1 round; 2 scouts led to improvement in round 2, while 1 scout stalled three times—apply the more successful scout budget to break out of the war/battle cluster.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 2,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "guess_count": 34,
+   "best_similarity": 61.92,
+   "best_rank": 708
+  },
+  {
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto"
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 23.73,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 2,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "medium",
+     "improved": false,
+     "best_after": 23.73,
+     "rank_after": 0,
+     "size": 0,
+     "asked": 8,
+     "experiment": true,
+     "chosen_effort": "low",
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 2,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "First round needs broad exploration with minimal depth; two haiku scouts efficiently probe different semantic directions while keeping reasoning light.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 2,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Just improved with this budget; early-round broad exploration doesn't need more. Maintain until stall appears.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 2,
+     "previous_subagents": 2,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "guess_count": 8,
+   "best_similarity": 23.73,
+   "best_rank": null
+  }
+ ],
  "lessons": [],
- "supervisor_lessons": []
+ "supervisor_lessons": [
+  "Self-assessment of a game: effort about right, scouts about right.",
+  "Don't reduce scouts on a single round of improvement; keep scouts high until 2–3 consecutive rounds of strong progress to avoid gambling with search power near the finish.",
+  "Scout bumps at the 1-stall-round mark work well: keep this pattern of early, modest scout increases rather than waiting for prolonged plateaus.",
+  "Low effort with rising scouts handles search-strategy failures; reserve effort increases for sustained low-rank plateaus lasting 3+ rounds where reasoning depth matters more."
+ ]
 }

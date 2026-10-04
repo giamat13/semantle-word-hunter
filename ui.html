@@ -297,6 +297,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
       <div class="field"><label for="selBackend">מקור</label><select id="selBackend">
         <option value="auto">אוטומטי</option><option value="cli">מנוי / CLI, בלי מפתח</option><option value="api">מפתח API</option></select></div>
       <label class="check wide"><input type="checkbox" id="chkTest"> מצב בדיקה: קורא מ-knowledge.json, כותב רק ל-knowledge_test.json (מתאפס בכל בדיקה)</label>
+      <label class="check wide"><input type="checkbox" id="chkExp" checked> ניסויי מאמץ: לפעמים סבב רץ ברמה גבוהה יותר מהבחירה של המפקח, באקראי, כדי לצבור נתונים (עולה קצת יותר מכסה)</label>
       <div class="field wide"><span class="lbl">מירוץ: כמה הגדרות צדות את אותה חידה במקביל</span>
         <div id="lanes"></div>
         <div class="race-bar"><button class="btn" id="btnAddLane" type="button">הוסף נתיב</button>
@@ -393,7 +394,7 @@ const $ = (id) => document.getElementById(id);
 const EFFORT_LABEL = { auto: "אוטומטי", low: "נמוך", medium: "בינוני", high: "גבוה", xhigh: "גבוה מאוד", max: "מקסימלי" };
 
 let S;            // per-run state, reset on every run
-let settings = { model: "sonnet", supervisor: "haiku", backend: "auto", subagents: "auto", subagent_model: "auto", test: false };
+let settings = { model: "sonnet", supervisor: "haiku", backend: "auto", subagents: "auto", subagent_model: "auto", test: false, experiments: true };
 let waitTimer = null;
 let sortBy = "score";
 
@@ -868,6 +869,11 @@ function onEvent(ev) {
     case "race_start": startRace(ev); break;
     case "race": onRaceLane(ev.lane, ev.ev); break;
     case "race_done": R.done = true; renderRace(); renderRaceSummary(ev.race); refreshState(); setStatus("solved", "המירוץ הסתיים"); break;
+    case "experiment": {
+      const it = h("div", "item sup"), head = h("div", "head");
+      head.append(h("b", "", "ניסוי מאמץ"), h("span", "badge", `${EFFORT_LABEL[ev.chosen]} ← ${EFFORT_LABEL[ev.tried]}`));
+      it.append(head, h("p", "", `המפקח בחר ${EFFORT_LABEL[ev.chosen]}. הסבב הזה רץ ב${EFFORT_LABEL[ev.tried]} כדי לצבור נתונים על שווי המאמץ.`));
+      feedAdd(it); break; }
     case "restarting": setStatus("running", "עוצר ומתחיל מחדש…"); break;
     case "waiting": onWaiting(ev); break;
     case "reasoning": onReasoning(ev); break;
@@ -934,7 +940,7 @@ function buildSettings(providers) {
   { const o = h("option", "", "אוטומטי: המפקח בוחר"); o.value = "auto"; $("selScoutModel").insertBefore(o, $("selScoutModel").firstChild); }
   setSelect($("selScoutModel"), settings.subagent_model); $("selScouts").value = String(settings.subagents);
   setSelect($("selModel"), settings.model); setSelect($("selSup"), settings.supervisor);
-  $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test;
+  $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test; $("chkExp").checked = settings.experiments !== false;
   const box = $("providers"); box.replaceChildren();
   for (const p of Object.values(providers || {})) {
     const ways = [];
@@ -964,6 +970,7 @@ $("selSup").onchange = (e) => { settings.supervisor = e.target.value; applyLive(
 $("selScouts").onchange = (e) => { settings.subagents = e.target.value; };
 $("selScoutModel").onchange = (e) => { settings.subagent_model = e.target.value; };
 $("chkTest").onchange = (e) => { settings.test = e.target.checked; };
+$("chkExp").onchange = (e) => { settings.experiments = e.target.checked; };
 
 async function refreshState() {
   try {
@@ -978,7 +985,7 @@ async function post(path, body) {
 
 async function runNow() {
   // No confirmation and no preconditions: if a game is in progress it is stopped and a new one starts.
-  settings = { model: settings.model, supervisor: settings.supervisor, subagents: settings.subagents, subagent_model: settings.subagent_model, test: settings.test,
+  settings = { model: settings.model, supervisor: settings.supervisor, subagents: settings.subagents, subagent_model: settings.subagent_model, test: settings.test, experiments: settings.experiments,
     backend: $("selBackend").value || settings.backend };
   const r = await (await post("/api/start", settings)).json();
   if (r.status === "restarting") setStatus("running", "עוצר ומתחיל מחדש…");

@@ -138,6 +138,7 @@ class Hub:
             a = argparse.Namespace(**vars(self.base_args))
             a.model, a.supervisor, a.subagents = cfg["model"], cfg["supervisor"], cfg["subagents"]
             a.test, a.max_guesses = True, max_guesses
+            a.experiments = False  # a race compares fixed setups; random effort changes would blur it
             a.test_file = Path(tempfile.gettempdir()) / f"hunter_race_{os.getpid()}_{i}.json"
             temp_files.append(a.test_file)
             code = 2
@@ -201,7 +202,8 @@ class Hub:
         return {
             "running": self.running,
             "defaults": {"model": b.model, "supervisor": b.supervisor, "backend": b.backend,
-                         "subagents": b.subagents, "subagent_model": b.subagent_model, "test": b.test},
+                         "subagents": b.subagents, "subagent_model": b.subagent_model, "test": b.test,
+                         "experiments": b.experiments},
             "live": dict(self.live),
             "knowledge": self.hooks["load_knowledge"](),
         }
@@ -245,6 +247,8 @@ def clean_overrides(raw: dict, hooks: dict) -> dict:
         out["max_guesses"] = max(0, raw["max_guesses"])
     if isinstance(raw.get("test"), bool):
         out["test"] = raw["test"]
+    if isinstance(raw.get("experiments"), bool):
+        out["experiments"] = raw["experiments"]
     if str(raw.get("subagents")) in ("auto", "0", "1", "2", "3"):
         out["subagents"] = str(raw["subagents"])
     return out

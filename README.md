@@ -94,6 +94,7 @@ python solver.py --backend api         # use the Anthropic API instead
 |---|---|---|
 | `--model` | `sonnet` | `opus`, `sonnet`, `haiku`, `fable`, or any full model ID |
 | `--supervisor` | `haiku` | model that watches in the background and adjusts effort; `off` disables |
+| `--no-experiments` | off | turn off effort experiments (rounds that randomly run above the supervisor's effort) |
 | `--test` / `--test-file` | off / `knowledge_test.json` | read from `--knowledge`, write only to the test file (wiped each test run) |
 | `--subagents` | `auto` | scouts per round: `auto` lets the supervisor decide (starting at 3), a number `0` to `3` is fixed for the whole game |
 | `--subagent-model` | `auto` | model the scouts run on: `auto` lets the supervisor pick (starting with Haiku), or any model ID or `provider:model`, fixed for the game |
@@ -199,6 +200,13 @@ little time.
   best score or rank improved) together with each supervisor decision and what the next round showed. Its
   prompt includes how often each effort level led to progress, how its earlier raises turned out, and lessons
   it wrote itself after earlier games about its own mistakes (raising too late, too early, or pointlessly).
+- **Effort experiments** keep that learning honest. If the supervisor always picks `low`, the record only ever
+  contains `low` and can never show whether more effort helps. So now and then (at random, on a quiet round
+  with no stall, not the first round, at most twice a game) a round runs one or two levels above the supervisor's
+  choice, never above `high`. It is marked as an experiment, it is not counted as the supervisor's decision, and
+  it stops for a level once that level has 8 recorded rounds. The supervisor reads the result: how often
+  experiment rounds improved the best score or rank against comparable normal rounds. This costs a little extra
+  usage; `--no-experiments` (or the checkbox in the settings) turns it off, and races never use it.
 - **Extended thinking is always on**: adaptive thinking for Opus, Sonnet and Fable, and a fixed budget for
   Haiku. Adaptive models decide how much to think; effort controls how deep they go, which is what the
   supervisor adjusts.
