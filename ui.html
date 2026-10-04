@@ -225,8 +225,33 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
   td.n { width: 30px; }
   .brand h1 { font-size: 30px; }
 }
-.item textarea { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; resize: vertical; }
-.item.fb { border-color: var(--accent); }
+.stats-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 920px) { .stats-grid { grid-template-columns: minmax(0, 1fr); } }
+.cfg { display: grid; gap: 4px; padding-block: 8px; border-top: 1px solid var(--line); }
+.cfg:first-child { border-top: 0; }
+.cfg-label { font-weight: 600; }
+.cfg-meta { font-size: 13px; color: var(--ink-3); }
+.cfg-meta.few { color: var(--warm); }
+.strip { direction: ltr; position: relative; height: 22px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); }
+.strip .sd { position: absolute; top: 5px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--accent); border: 1.5px solid var(--surface); }
+.strip .sd.un { background: var(--surface); border: 2px solid var(--warm); }
+.strip .med { position: absolute; top: 1px; bottom: 1px; width: 2px; background: var(--ink); opacity: .7; }
+.axis { direction: ltr; position: relative; height: 16px; margin-top: 2px; font-size: 11px; color: var(--ink-3); }
+.axis span { position: absolute; transform: translateX(-50%); }
+.lanes { display: grid; gap: 12px; }
+.lane { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; background: var(--surface-2); }
+.lane.win { border-color: var(--accent); }
+.lane-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; }
+.lane-head b { font-size: 15px; }
+.lane-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); }
+.lane .thermo { height: 92px; }
+.lane-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.lane-edit select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; max-width: 200px; }
+.race-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rtable { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+.rtable th, .rtable td { padding: 7px 8px; text-align: start; border-bottom: 1px solid var(--line); }
+.rtable th { color: var(--ink-3); font-size: 12px; font-weight: 600; }
+.badge.win { background: var(--accent); color: var(--accent-ink); }
 .check.wide { grid-column: 1 / -1; }
 .item.scouts { background: transparent; }
 .scout { display: grid; gap: 4px; }
@@ -267,17 +292,28 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
     <div class="fields">
       <div class="field"><label for="selSup">מפקח ברקע</label><select id="selSup"></select></div>
       <div class="field"><label for="selScouts">סוכני משנה</label><select id="selScouts">
-        <option value="3">3 סיירים</option><option value="2">2 סיירים</option><option value="1">סייר אחד</option><option value="0">כבוי</option></select></div>
+        <option value="auto">אוטומטי: המפקח מנהל</option><option value="3">3 סיירים קבועים</option><option value="2">2 סיירים קבועים</option><option value="1">סייר אחד קבוע</option><option value="0">בלי סיירים</option></select></div>
       <div class="field"><label for="selScoutModel">דגם הסיירים</label><select id="selScoutModel"></select></div>
-      <div class="field"><label for="numBatch">ניחושים בכל סבב</label><input type="number" id="numBatch" min="1" max="10"></div>
       <div class="field"><label for="selBackend">מקור</label><select id="selBackend">
         <option value="auto">אוטומטי</option><option value="cli">מנוי / CLI, בלי מפתח</option><option value="api">מפתח API</option></select></div>
       <label class="check wide"><input type="checkbox" id="chkTest"> מצב בדיקה: קורא מ-knowledge.json, כותב רק ל-knowledge_test.json (מתאפס בכל בדיקה)</label>
+      <div class="field wide"><span class="lbl">מירוץ: כמה הגדרות צדות את אותה חידה במקביל</span>
+        <div id="lanes"></div>
+        <div class="race-bar"><button class="btn" id="btnAddLane" type="button">הוסף נתיב</button>
+          <label for="numRaceMax">מגבלת ניחושים</label><input type="number" id="numRaceMax" value="100" min="10" max="300" style="width:90px">
+          <button class="btn primary" id="btnRace" type="button">התחל מירוץ</button></div>
+        <div class="hint">כל נתיב משחק את אותה חידה בו-זמנית, במצב בדיקה: קורא זיכרון ולא כותב ל-knowledge.json. התוצאות נשמרות ב-knowledge_races.json. כל נתיב צורך מכסה משלו.</div></div>
       <div class="field wide"><span class="lbl">חיבורים</span><div class="provs" id="providers"></div>
         <div class="hint">לכל ספק שתי דרכים: מפתח API, או ה-CLI הרשמי שלו כשאתה מחובר עם המנוי (בלי מפתח). שרתים מקומיים לא צריכים כלום. דגם מוקלד ידנית כ-ספק:דגם.</div></div>
     </div>
     <p class="note">המפקח בודק את ההתקדמות במקביל ויכול להעלות או להוריד את רמת המאמץ של המודל. הוא גם בוחר את הרמה ההתחלתית. כשהמפקח כבוי, המודל רץ ברמה בינונית לאורך כל המשחק. חשיבה מורחבת פועלת תמיד.</p>
     <div><button class="btn primary" id="btnStart">התחל לפתור</button></div>
+  </section>
+
+  <section class="card" id="raceCard" hidden>
+    <h2><span>מירוץ</span><span class="count" id="raceMeta"></span></h2>
+    <div class="lanes" id="raceLanes"></div>
+    <div id="raceSummary"></div>
   </section>
 
   <main class="grid">
@@ -295,6 +331,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
           <span>סבבים <b id="stRounds">0</b></span>
           <span>מאמץ <b id="stEffort">–</b></span>
           <span>חשיבה אחרונה <b id="stThink">–</b></span>
+          <button class="btn" id="btnShare" hidden title="טקסט בלי ספוילר, בסגנון Wordle">העתק לשיתוף</button>
         </div>
       </section>
 
@@ -329,6 +366,25 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
       </section>
     </div>
   </main>
+
+  <section class="card" id="statsCard">
+    <h2><span>סטטיסטיקה לאורך ימים</span><span class="count" id="statsCount"></span></h2>
+    <div class="stats-grid">
+      <div>
+        <div class="legend">
+          <span><i style="width:9px;height:9px;border-radius:50%;background:var(--accent)"></i>נפתר</span>
+          <span><i style="width:9px;height:9px;border-radius:50%;border:2px solid var(--warm)"></i>לא נפתר</span>
+        </div>
+        <div class="chart-box" id="dayChart"></div>
+      </div>
+      <div>
+        <div class="legend"><span>כל נקודה היא משחק. פחות ניחושים, יותר טוב; הקו האנכי הוא החציון.</span></div>
+        <div id="cfgRows"></div>
+      </div>
+    </div>
+    <p class="note" id="statsNote"></p>
+    <div id="raceStats" hidden></div>
+  </section>
 </div>
 
 <script>
@@ -337,16 +393,17 @@ const $ = (id) => document.getElementById(id);
 const EFFORT_LABEL = { auto: "אוטומטי", low: "נמוך", medium: "בינוני", high: "גבוה", xhigh: "גבוה מאוד", max: "מקסימלי" };
 
 let S;            // per-run state, reset on every run
-let settings = { model: "sonnet", supervisor: "haiku", batch: 5, backend: "auto", subagents: 3, subagent_model: "haiku", test: false };
+let settings = { model: "sonnet", supervisor: "haiku", backend: "auto", subagents: "auto", subagent_model: "haiku", test: false };
 let waitTimer = null;
 let sortBy = "score";
 
 function resetState() {
   S = { guesses: [], rounds: 0, thresholds: null, run: null, state: "idle", effort: null, think: null,
-        rejected: [], waitEl: null, waitStart: 0, lastChips: [], solved: null, feedbackShown: false };
+        rejected: [], waitEl: null, waitStart: 0, lastChips: [], solved: null };
   $("feed").replaceChildren(); $("rows").replaceChildren();
   $("feed").appendChild(Object.assign(document.createElement("div"), { className: "empty", id: "feedEmpty", textContent: "ממתין להתחלה…" }));
   clearInterval(waitTimer);
+  R = null; $("raceCard").hidden = true; document.querySelector(".grid").hidden = false;
   renderAll();
 }
 
@@ -365,6 +422,7 @@ function setStatus(state, text) {
   $("statusText").textContent = text;
   $("btnStop").hidden = state !== "running";   // the run buttons are never disabled: pressing run always runs
   $("btnRun").textContent = S.run ? "הרץ שוב" : "הרץ";
+  $("btnShare").hidden = state !== "found";
   $("hero").classList.toggle("found", state === "found" || state === "solved");
   $("heroKicker").textContent = (state === "found" || state === "solved") ? "המילה הסודית" : "המילה הכי קרובה עד כה";
 }
@@ -385,19 +443,20 @@ function renderHero() {
   $("stRounds").textContent = S.rounds;
   $("stEffort").textContent = S.effort ? (EFFORT_LABEL[S.effort] || S.effort) : "–";
   $("stThink").textContent = S.think != null ? `${S.think} טוקנים` : "–";
-  renderThermo(best);
+  renderThermo();
   renderPhase();
 }
 
-function renderThermo(best) {
-  const t = $("thermo"); t.replaceChildren();
+function renderThermo() { drawThermo($("thermo"), S.guesses, S.thresholds); }
+function drawThermo(t, guesses, th) {
+  t.replaceChildren();
+  const best = guesses.reduce((a, g) => (!a || g.similarity > a.similarity ? g : a), null);
   const pct = (v) => Math.max(0, Math.min(100, v)) + "%";
   const track = h("div", "track");
-  const th = S.thresholds;
   if (th) { const z = h("div", "zone"); z.style.left = pct(th.thousandth); z.style.right = "0"; track.appendChild(z); }
   const fill = h("div", "fill"); fill.style.width = best ? pct(best.similarity) : "0%"; track.appendChild(fill);
   t.appendChild(track);
-  for (const g of S.guesses) { const k = h("div", "dotg" + (g.distance > 0 ? " r" : "")); k.style.left = pct(g.similarity); t.appendChild(k); }
+  for (const g of guesses) { const k = h("div", "dotg" + (g.distance > 0 ? " r" : "")); k.style.left = pct(g.similarity); t.appendChild(k); }
   if (th) { const zl = h("div", "zlabel", "בתוך 1000 הקרובות"); zl.style.left = pct(th.thousandth); zl.style.marginLeft = "4px"; t.appendChild(zl); }
   for (const v of [0, 25, 50, 75, 100]) { const s = h("div", "scale", String(v)); s.style.left = pct(v); t.appendChild(s); }
   if (th) {
@@ -512,6 +571,209 @@ function renderMemory(k) {
   m.appendChild(h("p", "note", `${k.rejected} מילים שהמשחק דחה נשמרו כדי לא לנסות אותן שוב.`));
 }
 
+/* ---------- statistics across days ---------- */
+const shortModel = (m) => (m || "?").replace(/^claude-/, "").replace(/-\d{8}$/, "");
+const median = (a) => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+const scoutsText = (v) => (v === "auto" ? "סיירים אוטומטיים" : Number(v) ? `${v} סיירים` : "בלי סיירים");
+const cfgLabel = (g) => `${shortModel(g.model)} · ${scoutsText(g.subagents)} · ${g.supervisor ? "עם מפקח" : "בלי מפקח"}`;
+function renderStats(stats) {
+  const all = stats || [], games = all.filter((g) => !g.replay), replays = all.length - games.length;
+  $("statsCount").textContent = games.length ? `${games.length} משחקים` : "";
+  const day = $("dayChart"), rows = $("cfgRows"); rows.replaceChildren();
+  if (!games.length) { day.innerHTML = '<div class="empty">הסטטיסטיקה תתמלא אחרי המשחק הראשון.</div>'; $("statsNote").textContent = ""; return; }
+  const W = 560, H = 230, L = 34, R = 14, T = 14, B = 28;
+  const ymax = Math.ceil(Math.max(10, ...games.map((g) => g.guesses)) / 10) * 10;
+  const x = (i) => L + (games.length === 1 ? (W - L - R) / 2 : (i / (games.length - 1)) * (W - L - R));
+  const y = (v) => T + (1 - v / ymax) * (H - T - B);
+  const step = ymax > 60 ? 20 : 10;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="מספר הניחושים בכל משחק, לפי סדר החידות">`;
+  for (let v = 0; v <= ymax; v += step) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  const every = Math.ceil(games.length / 7);
+  games.forEach((g, i) => { if (i % every === 0 || i === games.length - 1) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${g.puzzle}</text>`; });
+  svg += `<path d="${games.map((g, i) => `${i ? "L" : "M"}${x(i)} ${y(g.guesses)}`).join("")}" fill="none" stroke="var(--ink-3)" stroke-width="1.5" opacity=".6"/>`;
+  games.forEach((g, i) => {
+    const tip = `חידה ${g.puzzle} · ${g.guesses} ניחושים · ${g.rounds} סבבים · ${cfgLabel(g)}${g.solved ? "" : " · לא נפתר"}`;
+    svg += g.solved
+      ? `<circle cx="${x(i)}" cy="${y(g.guesses)}" r="5.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"><title>${tip}</title></circle>`
+      : `<circle cx="${x(i)}" cy="${y(g.guesses)}" r="5.5" fill="var(--surface)" stroke="var(--warm)" stroke-width="2"><title>${tip}</title></circle>`;
+  });
+  day.innerHTML = svg + "</svg>";
+
+  const groups = new Map();
+  for (const g of games) { const k = cfgLabel(g); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(g); }
+  const list = [...groups].map(([label, gs]) => { const solved = gs.filter((g) => g.solved); return { label, gs, solved, med: solved.length ? median(solved.map((g) => g.guesses)) : null }; })
+    .sort((a, b) => (a.med ?? 1e9) - (b.med ?? 1e9));
+  let few = false;
+  for (const gr of list) {
+    const row = h("div", "cfg"); const lab = h("div", "cfg-label"); const g0 = gr.gs[0];
+    const b = document.createElement("bdi"); b.textContent = shortModel(g0.model);   // keep the Latin model name from scrambling the Hebrew around it
+    lab.append(b, ` · ${scoutsText(g0.subagents)} · ${g0.supervisor ? "עם מפקח" : "בלי מפקח"}`);
+    row.appendChild(lab);
+    const lost = gr.gs.length - gr.solved.length;
+    const meta = h("div", "cfg-meta" + (gr.gs.length < 3 ? " few" : ""),
+      `${gr.gs.length} משחקים · ${gr.med == null ? "אף אחד לא נפתר" : `חציון ${gr.med} ניחושים`}${lost && gr.med != null ? ` · ${lost} לא נפתרו` : ""}`);
+    few = few || gr.gs.length < 3; row.appendChild(meta);
+    const strip = h("div", "strip");
+    for (const g of gr.gs) { const d = h("i", "sd" + (g.solved ? "" : " un")); d.style.left = Math.min(100, (g.guesses / ymax) * 100) + "%"; d.title = `חידה ${g.puzzle} · ${g.guesses} ניחושים`; strip.appendChild(d); }
+    if (gr.med != null) { const m = h("i", "med"); m.style.left = Math.min(100, (gr.med / ymax) * 100) + "%"; strip.appendChild(m); }
+    row.appendChild(strip); rows.appendChild(row);
+  }
+  const axis = h("div", "axis"); for (let v = 0; v <= ymax; v += ymax / 2) { const t = h("span", "", String(v)); t.style.left = (v / ymax) * 100 + "%"; axis.appendChild(t); }
+  rows.appendChild(axis);
+  const notes = [];
+  if (few) notes.push("מעט נתונים: צריך לפחות 3 משחקים בכל הגדרה כדי להשוות.");
+  if (replays) notes.push(`${replays} ריצות חוזרות על חידה שכבר נפתרה לא נספרו, כי הפותר כבר ראה את התשובה.`);
+  notes.push("הדגם שמופיע הוא זה ששיחק את רוב הסבבים.");
+  $("statsNote").textContent = notes.join(" ");
+}
+
+/* ---------- race: several setups hunt the same puzzle at once ---------- */
+let R = null;   // the race on screen
+let raceLanes = [
+  { model: "sonnet", subagents: "3", supervisor: "haiku" },
+  { model: "sonnet", subagents: "0", supervisor: "haiku" },
+  { model: "haiku", subagents: "0", supervisor: "off" }];
+const SCOUT_OPTS = [["auto", "סיירים: אוטומטי"], ["0", "בלי סיירים"], ["1", "סייר אחד"], ["2", "2 סיירים"], ["3", "3 סיירים"]];
+const LANE_STATE = { running: "רץ", found: "מצא את המילה", stopped: "נעצר", error: "שגיאה", done: "הסתיים" };
+const fmtSec = (ms) => { const s = Math.round(ms / 1000); return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} דק׳` : `${s} שנ׳`; };
+
+function labelNode(c) {      // "sonnet · 3 סיירים · עם מפקח", with the Latin model name isolated from the Hebrew
+  const span = h("span"), b = document.createElement("bdi");
+  b.textContent = shortModel(c.model);
+  span.append(b, ` · ${scoutsText(c.subagents)} · ${c.supervisor && c.supervisor !== "off" ? "עם מפקח" : "בלי מפקח"}`);
+  return span;
+}
+
+function renderLaneEditor() {
+  const box = $("lanes"); box.replaceChildren();
+  raceLanes.forEach((ln, i) => {
+    const row = h("div", "lane-edit");
+    const m = document.createElement("select"); fillSelect(m, false, false); setSelect(m, ln.model); m.onchange = () => { ln.model = m.value; };
+    const sc = document.createElement("select");
+    for (const [v, t] of SCOUT_OPTS) { const o = h("option", "", t); o.value = String(v); sc.appendChild(o); }
+    sc.value = String(ln.subagents); sc.onchange = () => { ln.subagents = sc.value; };
+    const su = document.createElement("select"); fillSelect(su, true, false); setSelect(su, ln.supervisor); su.onchange = () => { ln.supervisor = su.value; };
+    [m, sc, su].forEach((el, k) => el.setAttribute("aria-label", ["דגם", "סיירים", "מפקח"][k] + ` בנתיב ${i + 1}`));
+    const rm = h("button", "btn", "הסר"); rm.type = "button"; rm.disabled = raceLanes.length <= 2;
+    rm.onclick = () => { raceLanes.splice(i, 1); renderLaneEditor(); };
+    row.append(h("b", "", `נתיב ${i + 1}`), m, sc, su, rm); box.appendChild(row);
+  });
+  $("btnAddLane").disabled = raceLanes.length >= 4;
+}
+$("btnAddLane").onclick = () => { if (raceLanes.length < 4) { raceLanes.push({ ...raceLanes[raceLanes.length - 1] }); renderLaneEditor(); } };
+$("btnRace").onclick = async () => {
+  const r = await (await post("/api/race", { lanes: raceLanes, max_guesses: parseInt($("numRaceMax").value, 10) || 100 })).json();
+  if (r.status === "restarting") setStatus("running", "עוצר ומתחיל מירוץ…");
+};
+
+function startRace(ev) {
+  R = { lanes: ev.lanes.map((c) => ({ cfg: c, guesses: [], thresholds: null, rounds: 0, scoutCalls: 0, supCalls: 0, state: "running",
+    t0: Date.now(), foundMs: null, endMs: null, note: "" })), max: ev.max_guesses, done: false };
+  document.querySelector(".grid").hidden = true; $("raceCard").hidden = false; $("raceSummary").replaceChildren();
+  $("raceMeta").textContent = `${ev.lanes.length} נתיבים · עד ${ev.max_guesses} ניחושים`;
+  setStatus("running", "מירוץ"); closeSettings(); renderRace();
+}
+function onRaceLane(i, e) {
+  if (!R || !R.lanes[i]) return;
+  const L = R.lanes[i];
+  switch (e.type) {
+    case "start": L.thresholds = e.thresholds; L.t0 = Date.now(); break;
+    case "guess": if (!e.resumed) L.guesses.push({ similarity: e.similarity, distance: e.distance }); break;
+    case "reasoning": L.rounds += 1; break;
+    case "subagents": L.scoutCalls += e.scouts.length; break;
+    case "supervisor": L.supCalls += 1; break;
+    case "found": L.state = "found"; L.foundMs = Date.now() - L.t0; break;
+    case "stopped": if (L.state === "running") L.state = "stopped"; L.note = e.reason; break;
+    case "error": if (L.state === "running") L.state = "error"; L.note = e.message; break;
+    case "lane_done": if (L.state === "running") L.state = "done"; break;
+  }
+  if (L.state !== "running" && L.endMs == null) L.endMs = Date.now() - L.t0;
+  renderRace();
+}
+function renderRace() {
+  if (!R) return;
+  const box = $("raceLanes"); box.replaceChildren();
+  const first = R.lanes.filter((l) => l.foundMs != null).sort((a, b) => a.foundMs - b.foundMs)[0];
+  for (const L of R.lanes) {
+    const card = h("div", "lane" + (L === first ? " win" : ""));
+    const head = h("div", "lane-head"), title = h("b"); title.appendChild(labelNode(L.cfg));
+    head.append(title, h("span", "badge" + (L === first ? " win" : ""), L === first ? "מצא ראשון" : LANE_STATE[L.state]));
+    const th = h("div", "thermo"); drawThermo(th, L.guesses, L.thresholds);
+    const best = L.guesses.reduce((a, g) => Math.max(a, g.similarity), 0);
+    const stats = h("div", "lane-stats");
+    for (const t of [`ניחושים ${L.guesses.length}`, `סבבים ${L.rounds}`, `הכי קרוב ${best.toFixed(1)}`,
+      `קריאות ${L.rounds + L.scoutCalls + L.supCalls} (סיירים ${L.scoutCalls}, פיקוח ${L.supCalls})`,
+      `זמן ${fmtSec(L.foundMs ?? L.endMs ?? Date.now() - L.t0)}`]) stats.appendChild(h("span", "", t));
+    if (L.note && L.state === "error") stats.appendChild(h("span", "", L.note));
+    card.append(head, th, stats); box.appendChild(card);
+  }
+}
+setInterval(() => { if (R && !R.done) renderRace(); }, 1000);   // keeps the clocks moving
+
+function renderRaceSummary(race) {
+  const box = $("raceSummary"); box.replaceChildren();
+  const solved = race.lanes.filter((l) => l.solved);
+  const fewest = solved.length ? Math.min(...solved.map((l) => l.guesses)) : null;
+  const table = h("table", "rtable"), head = h("tr");
+  for (const t of ["הגדרה", "תוצאה", "ניחושים", "קריאות", "זמן"]) head.appendChild(h("th", "", t));
+  table.appendChild(head);
+  for (const l of race.lanes) {
+    const tr = h("tr"), c1 = h("td"); c1.appendChild(labelNode(l.config));
+    const badges = [l.solved && l.guesses === fewest ? "הכי מעט ניחושים" : "", l.first ? "הכי מהיר" : ""].filter(Boolean);
+    const c2 = h("td", "", l.solved ? "נפתר" : "לא נפתר"); for (const b of badges) { c2.appendChild(document.createTextNode(" ")); c2.appendChild(h("span", "badge win", b)); }
+    tr.append(c1, c2, h("td", "", String(l.guesses)), h("td", "", String(l.rounds + l.scout_calls + l.supervisor_calls)),
+      h("td", "", l.seconds != null ? fmtSec(l.seconds * 1000) : "–"));
+    table.appendChild(tr);
+  }
+  box.appendChild(table);
+  box.appendChild(h("p", "note", "המירוץ נשמר ב-knowledge_races.json. הקריאות הן סבבים, סיירים ופיקוח יחד, כלומר מה שהנתיב עלה."));
+}
+
+function renderRaceStats(races) {
+  const box = $("raceStats"); box.replaceChildren();
+  if (!races || !races.length) { box.hidden = true; return; }
+  box.hidden = false;
+  box.appendChild(h("h3", "", `מירוצים: אותה חידה, הגדרות שונות (${races.length})`));
+  const agg = new Map();
+  for (const r of races) {
+    const solved = r.lanes.filter((l) => l.solved), fewest = solved.length ? Math.min(...solved.map((l) => l.guesses)) : null;
+    for (const l of r.lanes) {
+      const key = JSON.stringify(l.config), a = agg.get(key) || { cfg: l.config, races: 0, solved: 0, sum: 0, wins: 0, calls: 0 };
+      a.races += 1; a.calls += l.rounds + l.scout_calls + l.supervisor_calls;
+      if (l.solved) { a.solved += 1; a.sum += l.guesses; if (l.guesses === fewest) a.wins += 1; }
+      agg.set(key, a);
+    }
+  }
+  const table = h("table", "rtable"), head = h("tr");
+  for (const t of ["הגדרה", "מירוצים", "נפתר", "ממוצע ניחושים", "ניצחונות", "קריאות למירוץ"]) head.appendChild(h("th", "", t));
+  table.appendChild(head);
+  for (const a of [...agg.values()].sort((x, y) => (x.solved ? x.sum / x.solved : 1e9) - (y.solved ? y.sum / y.solved : 1e9))) {
+    const tr = h("tr"), c1 = h("td"); c1.appendChild(labelNode(a.cfg));
+    tr.append(c1, h("td", "", String(a.races)), h("td", "", `${a.solved}/${a.races}`),
+      h("td", "", a.solved ? (a.sum / a.solved).toFixed(1) : "–"), h("td", "", String(a.wins)), h("td", "", String(Math.round(a.calls / a.races))));
+    table.appendChild(tr);
+  }
+  box.appendChild(table);
+  if (races.length < 3) box.appendChild(h("p", "note", "מעט מירוצים: צריך כמה חידות כדי להבדיל בין הגדרות."));
+}
+
+/* ---------- share (no spoilers) ---------- */
+function shareText() {
+  const th = S.thresholds ? S.thresholds.thousandth : 49;
+  const g = [...S.guesses].sort((a, b) => a.n - b.n);
+  const sq = g.map((v) => (v.distance === 1000 ? "🟩" : v.distance > 0 ? "🟧" : v.similarity >= th * 0.8 ? "🟨" : "⬜"));
+  const rows = []; for (let i = 0; i < sq.length; i += 10) rows.push(sq.slice(i, i + 10).join(""));
+  const run = S.run || {};
+  const setup = [shortModel(run.model), run.subagents !== undefined ? scoutsText(run.subagents) : "", run.supervisor && run.supervisor !== "off" ? "עם מפקח" : ""].filter(Boolean).join(" · ");
+  return [`Semantle Word Hunter · חידה ${run.puzzle ?? "?"}`, `נפתר ב-${g.length} ניחושים · ${S.rounds} סבבים`, setup, ...rows].filter(Boolean).join("\n");
+}
+$("btnShare").onclick = async () => {
+  const text = shareText(), btn = $("btnShare");
+  try { await navigator.clipboard.writeText(text); }
+  catch { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch {} ta.remove(); }
+  btn.textContent = "הועתק"; setTimeout(() => { btn.textContent = "העתק לשיתוף"; }, 1600);
+};
+
 function renderAll() { renderHero(); renderChart(); renderRows(); }
 
 /* ---------- feed ---------- */
@@ -553,6 +815,8 @@ function onSupervisor(ev) {
   const it = h("div", "item sup"); const head = h("div", "head");
   head.append(h("b", "", "מפקח"), h("span", "badge", ev.previous === "auto" ? `רמה התחלתית: ${EFFORT_LABEL[ev.effort]}`
     : changed ? `${EFFORT_LABEL[ev.previous]} ← ${EFFORT_LABEL[ev.effort]}` : `נשאר ${EFFORT_LABEL[ev.effort]}`));
+  if (ev.subagents != null) head.appendChild(h("span", "badge", (ev.subagents !== ev.previous_subagents && ev.previous_subagents != null
+    ? `סיירים ${ev.previous_subagents} ← ${ev.subagents}` : `סיירים ${ev.subagents}`) + (ev.subagents ? (ev.scout_tier === "strong" ? " · חזקים" : " · זולים") : "")));
   if (ev.stalled) head.appendChild(h("span", "", `${ev.stalled} סבבים בלי שיפור`));
   it.append(head, h("p", "", ev.reason)); feedAdd(it);
 }
@@ -591,6 +855,9 @@ function onEvent(ev) {
     case "supervisor_lessons": {
       const it = h("div", "item sup"); it.appendChild(h("div", "head")).appendChild(h("b", "", "לקחי המפקח"));
       const ul = h("ul", "lessons"); for (const l of ev.lessons) ul.appendChild(h("li", "", l)); it.appendChild(ul); feedAdd(it); break; }
+    case "race_start": startRace(ev); break;
+    case "race": onRaceLane(ev.lane, ev.ev); break;
+    case "race_done": R.done = true; renderRace(); renderRaceSummary(ev.race); refreshState(); setStatus("solved", "המירוץ הסתיים"); break;
     case "restarting": setStatus("running", "עוצר ומתחיל מחדש…"); break;
     case "waiting": onWaiting(ev); break;
     case "reasoning": onReasoning(ev); break;
@@ -610,41 +877,17 @@ function onEvent(ev) {
       feedAdd(h("div", "item good")); S.waitEl = null; $("feed").firstChild.appendChild(h("p", "", `חידה ${ev.puzzle} כבר נפתרה: "${ev.secret}". אפשר לשחק שוב מההגדרות.`));
       openSettings(); break;
     case "lessons": {
-      const it = h("div", "item"); it.appendChild(Object.assign(h("div", "head"), {})).appendChild(h("b", "", "לקחים חדשים"));
+      const it = h("div", "item"); it.appendChild(Object.assign(h("div", "head"), {})).appendChild(h("b", "", "סיכום ולקחים"));
+      if (ev.summary) it.appendChild(h("p", "", ev.summary));
       const ul = h("ul", "lessons"); for (const l of ev.lessons) ul.appendChild(h("li", "", l)); it.appendChild(ul); feedAdd(it); refreshState(); break; }
     case "stopped": clearWait(); setStatus("stopped", "נעצר");
       { const it = h("div", "item"); it.appendChild(h("div", "head")).appendChild(h("b", "", "נעצר"));
-        it.appendChild(h("p", "", `${stopReason(ev.reason)}. המשחק נשמר, והרצה הבאה תמשיך ממנו.`)); feedAdd(it); } break;
+        it.appendChild(h("p", "", `${stopReason(ev.reason)}. המשחק נשמר. הרצה חוזרת מתחילה משחק חדש.`)); feedAdd(it); } break;
     case "error": clearWait(); setStatus("error", "שגיאה");
       { const it = h("div", "item err"); it.appendChild(h("div", "head")).appendChild(h("b", "", "שגיאה"));
         it.appendChild(h("p", "", ev.message)); feedAdd(it); } break;
-    case "finished": clearWait(); $("btnStop").hidden = true; refreshState(); showFeedback(); break;
+    case "finished": clearWait(); $("btnStop").hidden = true; refreshState(); break;
   }
-}
-function showFeedback() {
-  // After a game the user can tell the supervisor how its effort choices went; the next game's supervisor reads it first.
-  if (S.rounds < 1 || S.feedbackShown) return;
-  S.feedbackShown = true;
-  const it = h("div", "item fb"); const head = h("div", "head"); head.appendChild(h("b", "", "משוב למפקח"));
-  let rating = "";
-  const seg = h("div", "seg");
-  for (const [r, label] of [["low", "נמוכה מדי"], ["ok", "מתאימה"], ["high", "גבוהה מדי"]]) {
-    const b = h("button", "", label); b.type = "button"; b.setAttribute("aria-pressed", "false");
-    b.onclick = () => { rating = r; for (const x of seg.children) x.setAttribute("aria-pressed", String(x === b)); };
-    seg.appendChild(b);
-  }
-  const ta = document.createElement("textarea");
-  ta.rows = 2; ta.dir = "auto"; ta.placeholder = "מה המפקח היה צריך לעשות אחרת? (לא חובה)"; ta.setAttribute("aria-label", "משוב למפקח");
-  const send = h("button", "btn primary", "שלח משוב"); send.type = "button";
-  const msg = h("p", "note", "");
-  send.onclick = async () => {
-    send.disabled = true;
-    const r = await (await post("/api/feedback", { rating, text: ta.value })).json();
-    if (r.saved) it.replaceChildren(head, h("p", "", "נשמר. המפקח יראה את זה ראשון במשחק הבא."));
-    else { msg.textContent = "בחר דירוג או כתוב משהו לפני השליחה."; send.disabled = false; }
-  };
-  it.append(head, h("p", "", "איך הייתה רמת המאמץ שהמפקח בחר במשחק הזה?"), seg, ta, send, msg);
-  feedAdd(it);
 }
 const stopReason = (r) => ({ "stopped by user": "עצרת את ההרצה", "no new words proposed": "המודל לא הציע מילים חדשות כמה סבבים ברצף",
   "guess limit reached": "הגעת למגבלת הניחושים", interrupted: "ההרצה הופסקה" }[r] || r);
@@ -680,7 +923,7 @@ function buildSettings(providers) {
   fillSelect($("selModel"), false, true); fillSelect($("selSup"), true, false); fillSelect($("selScoutModel"), false, false);
   setSelect($("selScoutModel"), settings.subagent_model); $("selScouts").value = String(settings.subagents);
   setSelect($("selModel"), settings.model); setSelect($("selSup"), settings.supervisor);
-  $("numBatch").value = settings.batch; $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test;
+  $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test;
   const box = $("providers"); box.replaceChildren();
   for (const p of Object.values(providers || {})) {
     const ways = [];
@@ -691,7 +934,7 @@ function buildSettings(providers) {
     el.append(h("b", "", p.label), h("small", "", ways.join(" · ") || (p.key_env ? `${p.key_env} ✗` : "")));
     box.appendChild(el);
   }
-  syncSup();
+  syncSup(); renderLaneEditor();
 }
 function syncSup() { $("selSup").disabled = !effortOk(settings.model); }  // nothing to supervise without effort levels
 function applyLive() {
@@ -707,14 +950,14 @@ $("txtModel").onkeydown = (e) => {
   settings.model = v; setSelect($("selModel"), v); e.target.hidden = true; e.target.value = ""; syncSup(); applyLive();
 };
 $("selSup").onchange = (e) => { settings.supervisor = e.target.value; applyLive(); };
-$("selScouts").onchange = (e) => { settings.subagents = parseInt(e.target.value, 10); };
+$("selScouts").onchange = (e) => { settings.subagents = e.target.value; };
 $("selScoutModel").onchange = (e) => { settings.subagent_model = e.target.value; };
 $("chkTest").onchange = (e) => { settings.test = e.target.checked; };
 
 async function refreshState() {
   try {
     const st = await (await fetch("/api/state")).json();
-    renderMemory(st.knowledge); return st;
+    renderMemory(st.knowledge); renderStats(st.knowledge.stats); renderRaceStats(st.knowledge.races); return st;
   } catch { return null; }
 }
 async function post(path, body) {
@@ -725,7 +968,7 @@ async function post(path, body) {
 async function runNow() {
   // No confirmation and no preconditions: if a game is in progress it is stopped and a new one starts.
   settings = { model: settings.model, supervisor: settings.supervisor, subagents: settings.subagents, subagent_model: settings.subagent_model, test: settings.test,
-    batch: parseInt($("numBatch").value, 10) || settings.batch, backend: $("selBackend").value || settings.backend };
+    backend: $("selBackend").value || settings.backend };
   const r = await (await post("/api/start", settings)).json();
   if (r.status === "restarting") setStatus("running", "עוצר ומתחיל מחדש…");
 }

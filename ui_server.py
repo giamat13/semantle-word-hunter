@@ -6,10 +6,14 @@ start and stop a run. Bound to 127.0.0.1; POST requests must come from the page 
 
 import argparse
 import json
+import os
 import re
+import tempfile
 import threading
 import time
 import webbrowser
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -27,8 +31,8 @@ class Hub:
         self.lock = threading.Lock()
         self.running = False
         self.stop = threading.Event()
-        self.pending: dict | None = None  # a run requested while another was still stopping
-        self.last_args = base_args  # arguments of the latest run: feedback goes to the file that run used
+        self.pending = None  # what to start once the current run has stopped (a run or a race was requested)
+        self.last_args = base_args  # arguments of the latest run
         self.live: dict = {}  # model / supervisor of the running game; play() reads it every round
 
     def emit(self, ev: dict) -> None:
@@ -72,13 +76,105 @@ class Hub:
         with self.lock:
             busy = self.running
             if busy:
-                self.pending = overrides
+                self.pending = lambda: self.start_run(overrides)
                 self.stop.set()
         if busy:
             self.emit({"type": "restarting"})
             return "restarting"
         self.start_run(overrides)
         return "started"
+
+    def start_race(self, lanes: list[dict], max_guesses: int) -> bool:
+        with self.lock:
+            if self.running:
+                return False
+            self.running = True
+            self.stop = threading.Event()
+        self.emit({"type": "reset"})
+        self.live = {}
+        threading.Thread(target=self._race, args=(lanes, max_guesses, self.stop), daemon=True).start()
+        return True
+
+    def request_race(self, lanes: list[dict], max_guesses: int) -> str:
+        """Race now. If a game is in progress, stop it and start the race as soon as it has stopped."""
+        with self.lock:
+            busy = self.running
+            if busy:
+                self.pending = lambda: self.start_race(lanes, max_guesses)
+                self.stop.set()
+        if busy:
+            self.emit({"type": "restarting"})
+            return "restarting"
+        self.start_race(lanes, max_guesses)
+        return "started"
+
+    def _race(self, lanes: list[dict], max_guesses: int, stop: threading.Event) -> None:
+        """Every lane plays today's puzzle at the same time, each with its own setup, in test mode: the memory is
+        read from knowledge.json and nothing is written to it. The outcome is kept in the races file."""
+        stats = [{"guesses": 0, "rounds": 0, "scout_calls": 0, "supervisor_calls": 0, "solved": False,
+                  "t0": None, "t_found": None, "puzzle": None} for _ in lanes]
+        temp_files: list[Path] = []
+        self.emit({"type": "race_start", "lanes": lanes, "max_guesses": max_guesses})
+
+        def play_lane(i: int) -> None:
+            cfg, st = lanes[i], stats[i]
+
+            def emit(ev: dict) -> None:
+                t = ev["type"]
+                if t == "start":
+                    st["puzzle"], st["t0"] = ev["puzzle"], time.time()
+                elif t == "guess" and not ev.get("resumed"):
+                    st["guesses"] += 1
+                elif t == "reasoning":
+                    st["rounds"] += 1
+                elif t == "subagents":
+                    st["scout_calls"] += len(ev["scouts"])
+                elif t == "supervisor":
+                    st["supervisor_calls"] += 1
+                elif t == "found":
+                    st["solved"], st["t_found"] = True, time.time()
+                self.emit({"type": "race", "lane": i, "ev": ev})
+
+            a = argparse.Namespace(**vars(self.base_args))
+            a.model, a.supervisor, a.subagents = cfg["model"], cfg["supervisor"], cfg["subagents"]
+            a.test, a.max_guesses = True, max_guesses
+            a.test_file = Path(tempfile.gettempdir()) / f"hunter_race_{os.getpid()}_{i}.json"
+            temp_files.append(a.test_file)
+            code = 2
+            try:
+                code = self.hooks["play"](a, emit, stop, {})
+            except Exception as e:  # one lane failing must not end the race
+                emit({"type": "error", "message": f"{type(e).__name__}: {e}"})
+            self.emit({"type": "race", "lane": i, "ev": {"type": "lane_done", "code": code}})
+
+        try:
+            with ThreadPoolExecutor(max_workers=len(lanes)) as pool:
+                list(pool.map(play_lane, range(len(lanes))))
+            now = time.time()
+            results = [{"config": cfg, "solved": st["solved"], "guesses": st["guesses"], "rounds": st["rounds"],
+                        "scout_calls": st["scout_calls"], "supervisor_calls": st["supervisor_calls"],
+                        "seconds": round((st["t_found"] or now) - st["t0"]) if st["t0"] else None}
+                       for cfg, st in zip(lanes, stats)]
+            solved = [r for r in results if r["solved"]]
+            if solved:
+                min(solved, key=lambda r: r["seconds"])["first"] = True
+            race = {"date": date.today().isoformat(), "puzzle": stats[0]["puzzle"], "max_guesses": max_guesses,
+                    "lanes": results}
+            try:
+                self.hooks["save_race"](race)
+            except OSError as e:
+                self.emit({"type": "error", "message": f"could not save the race: {e}"})
+            self.emit({"type": "race_done", "race": race})
+        finally:
+            for f in temp_files:
+                f.unlink(missing_ok=True)
+                f.with_suffix(".tmp").unlink(missing_ok=True)
+            with self.lock:
+                self.running = False
+                pending, self.pending = self.pending, None
+            self.emit({"type": "finished", "code": 0})
+            if pending is not None:
+                pending()
 
     def _run(self, args, stop: threading.Event, live: dict) -> None:
         console = self.hooks["emit"]
@@ -98,13 +194,13 @@ class Hub:
                 pending, self.pending = self.pending, None
             self.emit({"type": "finished", "code": code})
             if pending is not None:
-                self.start_run(pending)
+                pending()
 
     def state(self) -> dict:
         b = self.base_args
         return {
             "running": self.running,
-            "defaults": {"model": b.model, "supervisor": b.supervisor, "batch": b.batch, "backend": b.backend,
+            "defaults": {"model": b.model, "supervisor": b.supervisor, "backend": b.backend,
                          "subagents": b.subagents, "subagent_model": b.subagent_model, "test": b.test},
             "live": dict(self.live),
             "knowledge": self.hooks["load_knowledge"](),
@@ -123,20 +219,34 @@ def clean_models(raw: dict) -> dict:
     return out
 
 
+def clean_lanes(raw) -> tuple[list[dict], int]:
+    """The race the page asks for: 1 to 4 lanes (model, scouts, supervisor) and a guess limit."""
+    body = raw if isinstance(raw, dict) else {}
+    lanes = []
+    for item in (body.get("lanes") if isinstance(body.get("lanes"), list) else [])[:4]:
+        if not isinstance(item, dict):
+            continue
+        model, sup = item.get("model"), item.get("supervisor")
+        if not (isinstance(model, str) and MODEL_NAME.match(model) and model != "off"):
+            continue
+        lanes.append({"model": model,
+                      "supervisor": sup if isinstance(sup, str) and MODEL_NAME.match(sup) else "off",
+                      "subagents": str(item["subagents"]) if str(item.get("subagents")) in ("auto", "0", "1", "2", "3") else "0"})
+    limit = body.get("max_guesses")
+    return lanes, (max(10, min(300, limit)) if isinstance(limit, int) else 100)
+
+
 def clean_overrides(raw: dict, hooks: dict) -> dict:
     """Validates what the page sends; anything unexpected is ignored."""
     out: dict = clean_models(raw)
     if raw.get("backend") in ("auto", "cli", "api"):
         out["backend"] = raw["backend"]
-    if isinstance(raw.get("batch"), int):
-        out["batch"] = max(1, min(10, raw["batch"]))
     if isinstance(raw.get("max_guesses"), int):
         out["max_guesses"] = max(0, raw["max_guesses"])
     if isinstance(raw.get("test"), bool):
         out["test"] = raw["test"]
-    if raw.get("subagents") in (0, 1, 2, 3):
-        out["subagents"] = raw["subagents"]
-    out["replay"] = True  # pressing run always runs, even when today's puzzle is already solved
+    if str(raw.get("subagents")) in ("auto", "0", "1", "2", "3"):
+        out["subagents"] = str(raw["subagents"])
     return out
 
 
@@ -191,11 +301,11 @@ def make_handler(hub: Hub, hooks: dict, port: int):
             if self.path == "/api/start":
                 status = hub.request_run(clean_overrides(raw if isinstance(raw, dict) else {}, hooks))
                 return self._json(200, {"status": status})
-            if self.path == "/api/feedback":
-                body = raw if isinstance(raw, dict) else {}
-                rating = body.get("rating") if body.get("rating") in ("low", "ok", "high") else ""
-                text = body.get("text") if isinstance(body.get("text"), str) else ""
-                return self._json(200, {"saved": hooks["feedback"](hub.last_args, rating, text[:600])})
+            if self.path == "/api/race":
+                lanes, limit = clean_lanes(raw)
+                if len(lanes) < 2:
+                    return self._json(400, {"error": "a race needs at least two lanes"})
+                return self._json(200, {"status": hub.request_race(lanes, limit)})
             if self.path == "/api/live":
                 changes = clean_models(raw if isinstance(raw, dict) else {})
                 return self._json(200, {"applied": hub.set_live(changes), "changes": changes})
@@ -245,7 +355,7 @@ def serve(args: argparse.Namespace, hooks: dict) -> int:
     url = f"http://127.0.0.1:{port}/"
     print(f"Semantle solver UI: {url}   (Ctrl-C or stop debugging to quit)")
     if args.autostart:
-        hub.start_run({"replay": True})
+        hub.start_run({})
     if not args.no_browser:
         threading.Timer(0.5, webbrowser.open, args=(url,)).start()
     try:

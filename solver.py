@@ -1,13 +1,13 @@
 """Semantle Word Hunter: plays Hebrew Semantle (https://semantle.ishefi.com) for you, driven by an AI model.
 
 Each round the model sees every guess so far (sorted by similarity) plus a digest of what earlier games
-taught it, and proposes a batch of new Hebrew words. The script submits them to the site's
+taught it, and chooses and proposes a few new Hebrew words. The script submits them to the site's
 /api/distance endpoint and loops until the secret word is found (distance == 1000).
 
-Everything learned is stored in knowledge.json: every game's guesses, the secret word, words the game
-rejected, and short lessons Claude writes after each game. The next run feeds a digest of that file
+Everything learned is stored in knowledge.json: for every game its counts, the secret word, a summary and short
+lessons the model writes when the game ends (the raw guesses are not kept), and words the game rejected. The next run feeds a digest of that file
 back into the prompt, so the solver improves over time. Progress is saved after every guess, so an
-interrupted game resumes where it stopped.
+interrupted game is saved, and running again always starts a new one.
 
 Run it in the terminal (python solver.py) or with a live web UI (python solver.py --ui).
 """
@@ -41,8 +41,7 @@ HEADERS = {"X-SH-Version": "2023-09-10"}
 KNOWLEDGE_PATH = Path(__file__).with_name("knowledge.json")
 API_ERRORS = (anthropic.APIStatusError,) if anthropic else ()
 STALL_LIMIT = 5  # consecutive Claude rounds with zero accepted words before giving up
-FEEDBACK_PREFIX = "USER FEEDBACK"
-EXAMPLE_COUNT = 3  # worked examples (best past solves) included in every prompt
+MIN_GUESSES, MAX_GUESSES = 1, 10  # the model chooses the round size inside these bounds
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 HAIKU_THINKING_BUDGET = 8000  # Haiku 4.5 has no adaptive thinking; the other models think adaptively
 
@@ -101,14 +100,23 @@ almost always a common, everyday word (noun, verb or adjective) in its base form
 - Never repeat any word from the history or the rejected list.
 
 # Using what you remember
-The user message may start with "Knowledge from previous games": past secret words, full worked examples
-of earlier solves, which words were close to which secrets, strong broad probes, and lessons. Use it:
-- Study the worked examples: they show how a real search moved from field to answer. Imitate what
-  worked, avoid what wasted guesses.
-- Reuse the strong broad probes when exploring, if they are not already in this game's history.
+The user message may start with "Knowledge from previous games": past secret words, a summary of each recent
+game, how each scout's words fared, and lessons. Use it:
+- Read the summaries: they show how earlier searches moved from the field to the answer and what wasted guesses.
+  Imitate what worked, avoid what wasted guesses.
 - Today's secret is a different word from every past secret. Past secrets are only evidence about how
   the embedding behaves, never candidates.
 - Lessons are guidance from small samples: follow them, but let this game's actual scores override them.
+
+# How many guesses to submit each round
+You choose the number of guesses in every round, from 1 to 10, and the game is scored by the total number of
+guesses, so spend them deliberately. A round costs a model call and some time; a guess costs one point.
+- Mapping the territory (no score near the 1000th-nearest reference score yet): a wide batch of 6 to 10
+  probes from different fields finds the field fastest, and the probes do not depend on each other.
+- Once a field or a ranked word is known: small batches of 1 to 3, because every result should steer the
+  next guess. Do not add filler words to reach a number.
+- When you are sure of a single best candidate, guess just that.
+State the number you chose and why in your reasoning.
 
 # Sub-agents
 Each round, sub-agents (scouts) may have explored in parallel before you. When the user message contains a
@@ -121,7 +129,7 @@ wrong. When your own recent guesses plateau, lean on the scout that explores a d
 
 # Output
 Reply only with the requested JSON: a short "reasoning" (2-4 sentences: current phase, what the scores
-suggest, why these words) and the "guesses" list with exactly the requested number of words."""
+suggest, why these words) and the "guesses" list with the words you chose to submit this round."""
 
 SCHEMA = {
     "type": "object",
@@ -130,6 +138,13 @@ SCHEMA = {
         "guesses": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["reasoning", "guesses"],
+    "additionalProperties": False,
+}
+
+SUMMARY_SCHEMA = {
+    "type": "object",
+    "properties": {"summary": {"type": "string"}, "lessons": {"type": "array", "items": {"type": "string"}}},
+    "required": ["summary", "lessons"],
     "additionalProperties": False,
 }
 
@@ -154,7 +169,14 @@ def save_knowledge(path: Path, know: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)  # a custom --knowledge path may point into a new folder
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(know, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(path)
+    for attempt in range(8):
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:  # Windows: another process (the UI reading the file, a scanner) holds it briefly
+            time.sleep(0.05 * (attempt + 1))
+    path.write_text(tmp.read_text(encoding="utf-8"), encoding="utf-8")  # last resort: write in place
+    tmp.unlink(missing_ok=True)
 
 
 def format_path(guesses: list[dict], head: int = 8, tail: int = 12) -> str:
@@ -166,55 +188,58 @@ def format_path(guesses: list[dict], head: int = 8, tail: int = 12) -> str:
     return "\n".join(rows)
 
 
+def guess_count(g: dict) -> int:
+    return g.get("guess_count", len(g.get("guesses", [])))
+
+
+def compact_game(g: dict) -> dict:
+    """A game as it is stored: counts and a summary, never the raw guesses."""
+    out = {k: v for k, v in g.items() if k != "guesses"}
+    guesses = g.get("guesses")
+    if guesses is not None:
+        out["guess_count"] = len(guesses)
+        out["best_similarity"] = max((x["similarity"] for x in guesses), default=None)
+        out["best_rank"] = max((x["distance"] for x in guesses if x["distance"] and x["distance"] > 0), default=None)
+    return out
+
+
 def build_memory(know: dict, current: dict) -> str:
-    """Digest of earlier games for the prompt: past secrets, worked examples, neighbours, probes, lessons."""
+    """Digest of earlier games for the prompt: past secrets, a summary of each recent game, scouts, lessons."""
     past = [g for g in know["games"] if g is not current]
     if not past and not know.get("lessons"):
         return ""
     parts = []
 
-    # A replayed puzzle appears twice; keep only the most efficient solve per secret word.
+    # The same puzzle can be played more than once; keep the most efficient solve per secret word.
     best: dict[str, dict] = {}
     for g in past:
-        if g.get("solved") and (g["secret"] not in best or len(g["guesses"]) < len(best[g["secret"]]["guesses"])):
+        if g.get("solved") and g.get("secret") and (g["secret"] not in best
+                                                    or guess_count(g) < guess_count(best[g["secret"]])):
             best[g["secret"]] = g
-    solved = [g for g in past if g.get("solved") and best[g["secret"]] is g]
+    solved = [g for g in past if g.get("solved") and g.get("secret") and best[g["secret"]] is g]
     if solved:
         parts.append("Past secret words (never the answer again, probably): "
-                     + ", ".join(f"{g['secret']} ({len(g['guesses'])} guesses)" for g in solved[-30:]))
-        assoc = []
-        for g in solved[-10:]:
-            near = sorted((x for x in g["guesses"] if x["distance"] and 0 < x["distance"] < 1000),
-                          key=lambda x: -x["distance"])[:8]
-            if near:
-                assoc.append(f"  {g['secret']}: " + ", ".join(f"{x['guess']}({x['distance']})" for x in near))
-        if assoc:
-            parts.append("Words that ranked closest to past secrets (word(rank/1000)) - shows what "
-                         "associations the embedding makes:\n" + "\n".join(assoc))
+                     + ", ".join(f"{g['secret']} ({guess_count(g)} guesses)" for g in solved[-30:]))
 
-    # Worked examples: the most efficient solves, shown as the actual search path.
-    for g in sorted(solved, key=lambda g: len(g["guesses"]))[:EXAMPLE_COUNT]:
-        parts.append(f"Worked example - secret '{g['secret']}', solved in {len(g['guesses'])} guesses "
-                     f"(word, similarity, rank):\n{format_path(g['guesses'])}")
-
-    stats = defaultdict(list)
-    for g in past:
-        for x in g["guesses"]:
-            stats[x["guess"]].append(x["similarity"])
-    probes = sorted(((sum(v) / len(v), w, len(v)) for w, v in stats.items() if len(v) >= 2), reverse=True)[:20]
-    if probes:
-        parts.append("Words that scored highest on average across several games (good broad probes): "
-                     + ", ".join(f"{w} ({m:.1f})" for m, w, _ in probes))
+    summaries = [g for g in past if g.get("summary")][-8:]
+    if summaries:
+        parts.append("What happened in earlier games (the raw guesses are not kept; these summaries are):\n"
+                     + "\n".join(f"- {'solved ' + g['secret'] if g.get('solved') else 'not solved'} in "
+                                 f"{guess_count(g)} guesses: {g['summary']}" for g in summaries))
 
     # What each sub-agent's words were worth, from the rounds recorded in earlier games.
     track: dict[str, list] = defaultdict(lambda: [0, 0.0, 0])
     for g in past:
         for r in g.get("rounds", []):
             for role, info in (r.get("scouts") or {}).items():
-                for _, sim, rank in info.get("used", []):
-                    track[role][0] += 1
-                    track[role][1] += sim
-                    track[role][2] += 1 if rank and rank > 0 else 0
+                used = info.get("used")
+                if isinstance(used, list):  # older records kept the words themselves
+                    n, total, ranked = len(used), sum(u[1] for u in used), sum(1 for u in used if u[2] and u[2] > 0)
+                else:
+                    n, total, ranked = used or 0, info.get("sum_sim", 0.0), info.get("ranked", 0)
+                track[role][0] += n
+                track[role][1] += total
+                track[role][2] += ranked
     used = [f"{role}: {n} words used, average similarity {total / n:.1f}, {ranked} with a rank"
             for role, (n, total, ranked) in track.items() if n]
     if used:
@@ -227,13 +252,42 @@ def build_memory(know: dict, current: dict) -> str:
     return "Knowledge from previous games:\n" + "\n\n".join(parts) + "\n\n"
 
 
-def knowledge_summary(know: dict) -> dict:
+def knowledge_stats(know: dict) -> list[dict]:
+    """One row per game for the UI's statistics: how long it took and under which setup."""
+    out = []
+    for g in know["games"]:
+        rounds = g.get("rounds", [])
+        models = [r["model"] for r in rounds] or [g.get("model")]
+        out.append({
+            "puzzle": g.get("puzzle"), "date": g.get("date"), "solved": bool(g.get("solved")),
+            "guesses": guess_count(g), "rounds": len(rounds),
+            "model": max(set(models), key=models.count),  # the model that played most of the rounds
+            "subagents": (g.get("config") or {}).get("subagents",
+                                                     max((len(r.get("scouts") or {}) for r in rounds), default=0)),
+            "supervisor": bool(g.get("supervisor_log")),
+            "replay": bool(g.get("replay")),
+        })
+    return out
+
+
+def load_races(path: Path) -> list[dict]:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+
+
+def append_race(path: Path, race: dict) -> None:
+    races = load_races(path)
+    races.append(race)
+    path.write_text(json.dumps(races, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def knowledge_summary(know: dict, races: list[dict] | None = None) -> dict:
     """What the web UI shows in its memory panel."""
     games = [{"puzzle": g.get("puzzle"), "date": g.get("date"), "secret": g.get("secret"),
-              "solved": g.get("solved"), "guesses": len(g["guesses"]), "model": g.get("model")}
+              "solved": g.get("solved"), "guesses": guess_count(g), "model": g.get("model")}
              for g in know["games"]]
     lessons = (know.get("lessons", []) + [l for g in know["games"][-10:] for l in g.get("lessons", [])])[-12:]
-    return {"games": games[-30:], "lessons": lessons, "rejected": len(know["rejected"])}
+    return {"games": games[-30:], "lessons": lessons, "rejected": len(know["rejected"]),
+            "stats": knowledge_stats(know), "races": (races or [])[-12:]}
 
 
 # ---------- site ----------
@@ -410,7 +464,7 @@ def call_model(client, args, system: str, prompt: str, schema: dict, effort: str
     return json.loads(next(b.text for b in response.content if b.type == "text"))
 
 
-def build_prompt(memory: str, history: list[dict], rejected: list[str], batch: int,
+def build_prompt(memory: str, history: list[dict], rejected: list[str],
                  thresholds: dict | None, scouts: dict | None = None) -> str:
     ranked = sorted(history, key=lambda h: h["similarity"], reverse=True)
     shown = ranked[:100]
@@ -442,26 +496,32 @@ def build_prompt(memory: str, history: list[dict], rejected: list[str], batch: i
         f"Guesses this game ({len(history)}){note}, format: word<TAB>similarity<TAB>rank:\n{table}\n\n"
         f"Rejected recently (not in the game's vocabulary): {', '.join(rejected[-50:]) or '(none)'}\n\n"
         f"{proposals}"
-        f"Propose exactly {batch} new Hebrew words to guess next. "
+        f"Choose how many new Hebrew words to guess this round ({MIN_GUESSES} to {MAX_GUESSES}) and propose them. "
         "Keep reasoning short (a few sentences)."
     )
 
 
-def write_lessons(client, args, game: dict, know: dict) -> list[str]:
+def write_lessons(client, args, game: dict, know: dict, solved: bool) -> dict:
+    """Summarises the game and writes lessons. The raw guesses are not kept, so everything worth keeping goes here."""
     earlier = (list(know.get("lessons", [])) + [l for g in know["games"] if g is not game for l in g.get("lessons", [])])[-25:]
+    count = len(game["guesses"])
+    outcome = (f"You just solved a Hebrew Semantle puzzle in {count} guesses. The secret word was: {game['secret']}."
+               if solved else f"A Hebrew Semantle game just ended without finding the word, after {count} guesses.")
     prompt = (
-        f"You just solved a Hebrew Semantle puzzle in {len(game['guesses'])} guesses. "
-        f"The secret word was: {game['secret']}.\n"
+        f"{outcome}\n"
         f"Your guesses in order (word, similarity, rank):\n{format_path(game['guesses'], head=60, tail=60)}\n\n"
         f"Lessons already recorded from earlier games:\n"
         f"{chr(10).join('- ' + l for l in earlier) or '(none yet)'}\n\n"
-        "Write 2-4 NEW short lessons for solving future puzzles faster, each one sentence: which probes "
-        "were wasteful or useful, how quickly the right field was identified, which kind of association "
-        "finally led to the secret. Do not repeat an existing lesson; if this game contradicts one, say so "
-        "explicitly. One game is a small sample: phrase lessons about the search process (what to try "
-        "when), not about what kind of word secrets usually are."
+        "The raw guesses of this game will NOT be kept, so write down everything worth keeping from them.\n"
+        "1. summary: 4 to 7 plain sentences for a future player who has not seen this game: "
+        + ("the secret word and how many guesses it took, " if solved else "that the word was not found, ")
+        + "the field it belongs to, the words that ranked closest with their ranks, the turning point, what was "
+        "wasted, and how the scouts and the effort mattered.\n"
+        "2. lessons: 2-4 NEW one-sentence lessons for solving future puzzles faster. Do not repeat an existing lesson; "
+        "if this game contradicts one, say so explicitly. One game is a small sample: phrase lessons about the "
+        "search process (what to try when), not about what kind of word secrets usually are."
     )
-    return call_model(client, args, SYSTEM, prompt, LESSON_SCHEMA, "low")["lessons"]
+    return call_model(client, args, SYSTEM, prompt, SUMMARY_SCHEMA, "low")
 
 
 # ---------- sub-agents (scouts) ----------
@@ -494,9 +554,10 @@ SCOUT_SCHEMA = {
 }
 
 
-def run_scouts(client, args, history: list[dict], rejected: list[str], thresholds: dict | None, emit) -> dict:
-    """Runs the scouts in parallel on a cheaper model and returns {role: [new candidate words]}."""
-    n = max(0, min(args.subagents, len(SCOUT_ROLES)))
+def run_scouts(client, args, history: list[dict], rejected: list[str], thresholds: dict | None, emit,
+               count: int, model: str) -> dict:
+    """Runs `count` scouts in parallel on `model` and returns {role: [new candidate words]}."""
+    n = max(0, min(count, len(SCOUT_ROLES)))
     if n == 0 or not history:
         return {}
     guessed = {h["guess"] for h in history} | set(rejected)
@@ -508,7 +569,7 @@ def run_scouts(client, args, history: list[dict], rejected: list[str], threshold
     ref = (f"Reference scores today: nearest {thresholds['nearest']}, 10th {thresholds['tenth']}, "
            f"1000th {thresholds['thousandth']}.\n" if thresholds else "")
     sub_args = argparse.Namespace(**vars(args))
-    sub_args.model = args.subagent_model
+    sub_args.model = model
 
     def one(role_and_text):
         role, text = role_and_text
@@ -527,43 +588,61 @@ def run_scouts(client, args, history: list[dict], rejected: list[str], threshold
 
     with ThreadPoolExecutor(max_workers=n) as pool:
         results = dict(pool.map(one, SCOUT_ROLES[:n]))
-    emit({"type": "subagents", "model": args.subagent_model,
+    emit({"type": "subagents", "model": model,
           "scouts": [{"role": r, "note": v["note"], "candidates": v["candidates"]} for r, v in results.items()]})
     return {r: v["candidates"] for r, v in results.items() if v["candidates"]}
 
 
 # ---------- supervisor ----------
 
-SUPERVISOR_SYSTEM = """You supervise an automatic Hebrew Semantle solver (another Claude model plays; you
-only watch). Before each round you choose how hard the player should think, as an effort level:
-low, medium, high, xhigh or max. Higher effort means deeper reasoning, more time and more usage.
+SUPERVISOR_SYSTEM = """You supervise an automatic Hebrew Semantle solver (another model plays; you only watch). Before
+each round you set the player's budget:
+- effort: low, medium, high, xhigh or max. How hard the player thinks: deeper reasoning, more time, more usage.
+  Some models have no effort levels; then your effort choice is ignored.
+- subagents: 0 to 3 scouts that explore in parallel before the player does (field-scout, neighbour-scout,
+  triangulator). Every scout is one extra model call per round.
+- scout_tier: "cheap" (a small, fast model) or "strong" (the same model as the player: smarter, but it costs
+  much more).
+Spend where it helps and save where it does not.
 
 Decide from the progress summary you are given:
-- Early exploration with broad probes needs little thinking: low or medium.
+- Early exploration with broad probes needs little thinking and little help: effort low or medium, and one or
+  two cheap scouts, or none.
 - Raise effort when the player struggles: no new best score or rank for 3 or more rounds, guesses
   circling the same cluster, rank stuck at a low number, or similarity plateauing below the 1000th-nearest
   reference score. Raise one level for a mild stall, two for a long one. Use max only after 6+ rounds
   with no improvement.
-- When the player is improving round after round, keep the current level, or lower it if the level is
-  high and progress is easy.
-- Never change effort without a reason you can state in one sentence.
+- Scouts are the stronger tool against a plateau, because a stall is usually a strategy problem: the triangulator
+  jumps to the outcome, cause or opposite of the top words. After 2 stalled rounds use all 3 scouts. After 4
+  stalled rounds with 3 cheap scouts, try the strong tier.
+- When the player improves round after round, save: lower effort if it is high, and use fewer scouts or none.
+- Never change anything without a reason you can state in one sentence.
 
 # Learning from the record
-The user message may include what you know from earlier games: how often each effort level led to progress,
-how your earlier raises turned out, and lessons you wrote yourself after those games. Use it.
-- If raising effort rarely led to progress, do not lean on it. A stall is often a strategy problem (the
-  player circling one cluster of near-synonyms) and not a thinking-depth problem. The player has sub-agents
-  that explore other axes, so a stall does not always call for more effort.
+The user message may include what you know from earlier games: how often each effort level and each scout
+budget led to progress, how your earlier changes turned out, and lessons you wrote yourself after those games.
+Use it.
+- If raising effort rarely led to progress, do not lean on it; if a scout budget rarely did, do not lean on that.
 - If one of your lessons says you acted too late, too early or pointlessly, act on it now.
-- Lines that start with USER FEEDBACK come from the person running the solver. They outrank your own
-  lessons: follow them.
 - Your decisions in the current game are listed with what followed each one. Do not repeat a change that
   just failed to help."""
 
+REFLECT_SCHEMA = {
+    "type": "object",
+    "properties": {"effort_verdict": {"type": "string", "enum": ["too_low", "about_right", "too_high"]},
+                   "scouts_verdict": {"type": "string", "enum": ["too_few", "about_right", "too_many"]},
+                   "lessons": {"type": "array", "items": {"type": "string"}}},
+    "required": ["effort_verdict", "scouts_verdict", "lessons"],
+    "additionalProperties": False,
+}
+
 SUPERVISOR_SCHEMA = {
     "type": "object",
-    "properties": {"effort": {"type": "string", "enum": EFFORTS}, "reason": {"type": "string"}},
-    "required": ["effort", "reason"],
+    "properties": {"effort": {"type": "string", "enum": EFFORTS},
+                   "subagents": {"type": "integer", "enum": [0, 1, 2, 3]},
+                   "scout_tier": {"type": "string", "enum": ["cheap", "strong"]},
+                   "reason": {"type": "string"}},
+    "required": ["effort", "subagents", "scout_tier", "reason"],
     "additionalProperties": False,
 }
 
@@ -575,61 +654,82 @@ def decision_text(log: list[dict]) -> str:
         out = d.get("outcome")
         result = "pending" if not out else ("improved the best score or rank" if out["improved"] else "no gain")
         change = f"{d['previous']} -> {d['effort']}" if d["previous"] != d["effort"] else f"kept {d['effort']}"
-        lines.append(f"- after round {d['after_round']}: {change} (stalled {d.get('stalled') or 0} rounds). "
+        scouts = ""
+        if d.get("subagents") is not None:
+            was = d.get("previous_subagents")
+            scouts = (f", scouts {was} -> {d['subagents']}" if was is not None and was != d["subagents"]
+                      else f", scouts {d['subagents']}") + f" ({d.get('scout_tier', 'cheap')})"
+        lines.append(f"- after round {d['after_round']}: {change}{scouts} (stalled {d.get('stalled') or 0} rounds). "
                      f"Next round: {result}.")
     return "\n".join(lines)
 
 
 def supervisor_digest(know: dict, game: dict) -> str:
-    """What the supervisor learned from earlier games: effort statistics, its own raises, its own lessons."""
+    """What the supervisor learned from earlier games: effort and scout statistics, its changes, its lessons."""
     past = [g for g in know["games"] if g is not game]
     by: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    by_scouts: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     decisions = []
     for g in past:
         for r in g.get("rounds", []):
             by[r["effort"]][0] += 1
             by[r["effort"]][1] += 1 if r["improved"] else 0
+            b = r.get("budget")
+            if b:
+                key = f"{b['subagents']} scouts ({b['tier']})" if b["subagents"] else "no scouts"
+                by_scouts[key][0] += 1
+                by_scouts[key][1] += 1 if r["improved"] else 0
         decisions += [d for d in g.get("supervisor_log", []) if d.get("outcome")]
     parts = []
     if by:
         order = sorted(by, key=lambda e: EFFORTS.index(e) if e in EFFORTS else len(EFFORTS))
         parts.append("Effort levels used in earlier games (rounds played, share of rounds that improved the best "
                      "score or rank): " + ", ".join(f"{e} {by[e][0]} rounds {100 * by[e][1] // by[e][0]}%" for e in order))
+    if by_scouts:
+        parts.append("Scout budgets used in earlier games (rounds played, share that improved the best score or "
+                     "rank): " + ", ".join(f"{k} {n} rounds {100 * i // n}%" for k, (n, i) in sorted(by_scouts.items())))
     raises = [d for d in decisions if d["previous"] in EFFORTS and EFFORTS.index(d["effort"]) > EFFORTS.index(d["previous"])]
     if raises:
         parts.append(f"You raised effort {len(raises)} times; the very next round improved after "
                      f"{sum(1 for d in raises if d['outcome']['improved'])} of them.")
-    solved = [len(g["guesses"]) for g in past if g.get("solved")]
+    more_scouts = [d for d in decisions if d.get("previous_subagents") is not None and d.get("subagents", 0) > d["previous_subagents"]]
+    if more_scouts:
+        parts.append(f"You added scouts {len(more_scouts)} times; the very next round improved after "
+                     f"{sum(1 for d in more_scouts if d['outcome']['improved'])} of them.")
+    solved = [guess_count(g) for g in past if g.get("solved")]
     if solved:
         parts.append("Guesses needed in solved games: " + ", ".join(map(str, solved)) + ".")
-    every = know.get("supervisor_lessons", [])
-    feedback = [l for l in every if l.startswith(FEEDBACK_PREFIX)][-5:]
-    own = [l for l in every if not l.startswith(FEEDBACK_PREFIX)][-10:]
-    if feedback:
-        parts.append("Feedback from the user about your effort decisions (highest priority):\n"
-                     + "\n".join(f"- {l}" for l in feedback))
+    own = know.get("supervisor_lessons", [])[-10:]
     if own:
         parts.append("Your own lessons from earlier games (follow them):\n" + "\n".join(f"- {l}" for l in own))
     return ("What you know from earlier games:\n" + "\n".join(parts) + "\n\n") if parts else ""
 
 
 def reflect_supervisor(client, args, game: dict, know: dict) -> list[str]:
-    """After a game, the supervisor reviews its own effort decisions and writes lessons about its mistakes."""
-    rounds = "\n".join(f"round {r['n']}: effort {r['effort']}, best similarity {r['best_after']:.1f}, "
+    """After a game, the supervisor reviews its own decisions and writes lessons about its mistakes."""
+    def budget(r):
+        b = r.get("budget")
+        return f", scouts {b['subagents']} ({b['tier']})" if b else ""
+    rounds = "\n".join(f"round {r['n']}: effort {r['effort']}{budget(r)}, best similarity {r['best_after']:.1f}, "
                        f"{'improved' if r['improved'] else 'no gain'}" for r in game.get("rounds", []))
     earlier = know.get("supervisor_lessons", [])[-10:]
     prompt = (
         f"The game is over: solved in {len(game['guesses'])} guesses over {len(game.get('rounds', []))} rounds.\n"
-        f"Rounds:\n{rounds}\n\nYour effort decisions and what followed:\n"
+        f"Rounds:\n{rounds}\n\nYour decisions (effort and scouts) and what followed:\n"
         f"{decision_text(game.get('supervisor_log', [])) or '(none)'}\n\n"
         f"Lessons you already wrote:\n{chr(10).join('- ' + l for l in earlier) or '(none yet)'}\n\n"
-        "Write 2-3 NEW one-sentence lessons about your effort decisions: moments you changed effort too late, "
-        "too early or pointlessly, and what to do differently. If effort made no visible difference to the "
-        "progress, say so plainly. Do not repeat a lesson you already wrote."
+        "First judge the whole game, the way the person running the solver would: was the effort you chose too low, "
+        "about right or too high, and was the scout budget too few, about right or too many (answer about_right "
+        "when the user fixed the scouts). Then write 2-3 NEW one-sentence lessons about your decisions: moments you "
+        "changed effort or the scout budget too late, too early or pointlessly, and what to do differently. If a "
+        "setting made no visible difference to the progress, say so plainly. Do not repeat a lesson you already wrote."
     )
     sup_args = argparse.Namespace(**vars(args))
     sup_args.model = args.supervisor
-    return call_model(client, sup_args, SUPERVISOR_SYSTEM, prompt, LESSON_SCHEMA, "low")["lessons"]
+    data = call_model(client, sup_args, SUPERVISOR_SYSTEM, prompt, REFLECT_SCHEMA, "low")
+    verdict = (f"Self-assessment of a game: effort {data['effort_verdict'].replace('_', ' ')}, "
+               f"scouts {data['scouts_verdict'].replace('_', ' ')}.")
+    return [verdict] + data["lessons"]
 
 
 def stall_rounds(best_per_round: list[float]) -> int:
@@ -643,7 +743,8 @@ def stall_rounds(best_per_round: list[float]) -> int:
 
 class Supervisor:
     """Reviews the game in a background thread while the main model thinks. A verdict is applied at the
-    start of the next round, so the review never adds latency."""
+    start of the next round, so the review never adds latency. A verdict is the budget for that round:
+    {"effort", "subagents", "tier"}."""
 
     def __init__(self, args, client, emit, know: dict, game: dict):
         self.args, self.client, self.emit = args, client, emit
@@ -651,48 +752,72 @@ class Supervisor:
         self.digest = supervisor_digest(know, game)  # fixed for the game; this game's decisions are added per review
         self.model = args.supervisor
         self.thread: threading.Thread | None = None
-        self.verdict: str | None = None
+        self.verdict: dict | None = None
 
     def busy(self) -> bool:
         return self.thread is not None and self.thread.is_alive()
 
-    def take(self) -> str | None:
-        """The effort the supervisor chose since the last call, or None."""
+    def take(self) -> dict | None:
+        """The budget the supervisor chose since the last call, or None."""
         verdict, self.verdict = self.verdict, None
         return verdict
 
-    def choose_start(self, know: dict, thresholds: dict | None) -> str:
-        """Picks the first round's effort. Blocks for one short call."""
-        past = [len(g["guesses"]) for g in know["games"] if g.get("solved")]
-        prompt = (
-            f"{self.digest}A new game is starting: no guesses yet.\n"
-            f"Main model: {self.args.model}.\n"
-            + (f"Past solved games, guesses needed: {', '.join(map(str, past))}.\n" if past
-               else "No past games yet.\n")
-            + (f"Reference scores today: nearest {thresholds['nearest']}, 10th {thresholds['tenth']}, "
-               f"1000th {thresholds['thousandth']}.\n" if thresholds else "")
-            + "\nWhich effort level should the player use for the first round?"
-        )
+    def _ask(self, prompt: str, effort: str, budget: dict, stalled: int) -> dict:
+        """One supervisor call; falls back to a simple rule when it fails. Returns the verdict plus its reason."""
         sup_args = argparse.Namespace(**vars(self.args))
         sup_args.model = self.model
         try:
             data = call_model(self.client, sup_args, SUPERVISOR_SYSTEM, prompt, SUPERVISOR_SCHEMA, "low")
-            new, reason = data["effort"], data["reason"]
-        except Exception as e:
-            new, reason = "medium", f"supervisor call failed ({type(e).__name__}); starting at medium"
-        self.emit({"type": "supervisor", "effort": new, "previous": "auto", "reason": reason, "stalled": 0})
+            new = {"effort": data["effort"], "subagents": data["subagents"], "tier": data["scout_tier"],
+                   "reason": data["reason"]}
+        except Exception as e:  # a failed review never stops the game
+            new = {"effort": EFFORTS[min(EFFORTS.index(effort) + 1, len(EFFORTS) - 1)] if stalled >= 3 else effort,
+                   "subagents": 3 if stalled >= 2 else budget["subagents"], "tier": budget["tier"],
+                   "reason": f"supervisor call failed ({type(e).__name__}); rule: more scouts after 2 stalled rounds, "
+                             "one effort level up after 3"}
+        if not effort_ok(self.args.model):
+            new["effort"] = effort  # the player's model has no effort levels, so only the scouts can change
+        if self.args.subagents != "auto":
+            new["subagents"], new["tier"] = budget["subagents"], budget["tier"]  # the user fixed the scouts
         return new
 
+    def _announce(self, new: dict, effort: str, budget: dict, stalled: int, previous_effort: str) -> None:
+        self.verdict = {"effort": new["effort"], "subagents": new["subagents"], "tier": new["tier"]}
+        self.emit({"type": "supervisor", "effort": new["effort"], "previous": previous_effort, "reason": new["reason"],
+                   "stalled": stalled, "subagents": new["subagents"], "previous_subagents": budget["subagents"],
+                   "scout_tier": new["tier"], "previous_tier": budget["tier"]})
+
+    def choose_start(self, know: dict, thresholds: dict | None, budget: dict) -> dict:
+        """Picks the first round's budget. Blocks for one short call."""
+        past = [guess_count(g) for g in know["games"] if g.get("solved")]
+        prompt = (
+            f"{self.digest}A new game is starting: no guesses yet.\n"
+            f"Main model: {self.args.model} (effort levels: {'yes' if effort_ok(self.args.model) else 'no'}).\n"
+            f"Scout model for the cheap tier: {self.args.subagent_model}. Scouts: "
+            + ("you manage them, starting at 3.\n" if self.args.subagents == "auto"
+               else f"fixed by the user at {budget['subagents']}, you cannot change them.\n")
+            + (f"Past solved games, guesses needed: {', '.join(map(str, past))}.\n" if past
+               else "No past games yet.\n")
+            + (f"Reference scores today: nearest {thresholds['nearest']}, 10th {thresholds['tenth']}, "
+               f"1000th {thresholds['thousandth']}.\n" if thresholds else "")
+            + "\nWhat budget should the player have for the first rounds?"
+        )
+        new = self._ask(prompt, "medium", budget, 0)
+        if not effort_ok(self.args.model):
+            new["effort"] = "medium"
+        self._announce(new, "medium", budget, 0, "auto")
+        return {"effort": new["effort"], "subagents": new["subagents"], "tier": new["tier"]}
+
     def review(self, history: list[dict], best_per_round: list[float], effort: str,
-               thresholds: dict | None) -> None:
+               thresholds: dict | None, budget: dict) -> None:
         if self.busy():
             return
         snapshot = [dict(h) for h in history]
         self.thread = threading.Thread(
-            target=self._run, args=(snapshot, list(best_per_round), effort, thresholds), daemon=True)
+            target=self._run, args=(snapshot, list(best_per_round), effort, thresholds, dict(budget)), daemon=True)
         self.thread.start()
 
-    def _run(self, history, best_per_round, effort, thresholds) -> None:
+    def _run(self, history, best_per_round, effort, thresholds, budget) -> None:
         stalled = stall_rounds(best_per_round)
         ranked = [h for h in history if h["distance"] and 0 < h["distance"] < 1000]
         best_rank = max((h["distance"] for h in ranked), default=None)
@@ -702,27 +827,21 @@ class Supervisor:
         prompt = (
             f"{self.digest}"
             + (f"Your decisions so far in this game:\n{mine}\n\n" if mine else "")
-            + f"Rounds played: {len(best_per_round)}. Guesses: {len(history)}. Current effort: {effort}.\n"
-            f"Best similarity after each round: {', '.join(f'{b:.1f}' for b in best_per_round)}.\n"
+            + f"Rounds played: {len(best_per_round)}. Guesses: {len(history)}. Current effort: {effort}"
+            f" (the player's model {'has' if effort_ok(self.args.model) else 'has no'} effort levels). "
+            f"Current scouts: {budget['subagents']} ({budget['tier']})"
+            + (".\n" if self.args.subagents == "auto" else ", fixed by the user (you cannot change them).\n")
+            + f"Best similarity after each round: {', '.join(f'{b:.1f}' for b in best_per_round)}.\n"
             f"Rounds since the best similarity last improved: {stalled}.\n"
             f"Best rank so far: {best_rank if best_rank is not None else 'none yet'}. "
             f"Guesses with a rank: {len(ranked)}.\n"
             + (f"Reference scores today: nearest {thresholds['nearest']}, 10th {thresholds['tenth']}, "
                f"1000th {thresholds['thousandth']}.\n" if thresholds else "")
             + f"Top guesses: {top}.\n\n"
-            "Which effort level should the player use for the next round?"
+            "What budget should the player have for the next round?"
         )
-        sup_args = argparse.Namespace(**vars(self.args))
-        sup_args.model = self.model
-        try:
-            data = call_model(self.client, sup_args, SUPERVISOR_SYSTEM, prompt, SUPERVISOR_SCHEMA, "low")
-            new, reason = data["effort"], data["reason"]
-        except Exception as e:  # a failed review falls back to a simple rule and never stops the game
-            new = EFFORTS[min(EFFORTS.index(effort) + 1, len(EFFORTS) - 1)] if stalled >= 3 else effort
-            reason = f"supervisor call failed ({type(e).__name__}); rule: raise one level after 3 stalled rounds"
-        self.verdict = new
-        self.emit({"type": "supervisor", "effort": new, "previous": effort, "reason": reason,
-                   "stalled": stalled})
+        new = self._ask(prompt, effort, budget, stalled)
+        self._announce(new, effort, budget, stalled, effort)
 
 
 # ---------- game ----------
@@ -732,8 +851,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
 
     `live` is a dict the caller may change while the game runs ("model", "supervisor"); the new values
     apply from the next round.
-    Event types: start, waiting, reasoning, supervisor, model, guess, rejected, found, already_solved,
-    lessons, supervisor_lessons, subagents, stopped, error.
+    Event types: start, waiting, reasoning, supervisor, model, guess, rejected, found, lessons, supervisor_lessons, subagents, stopped, error.
     """
     stop = stop or threading.Event()
     client = None  # the Anthropic client is created on first use (see call_model)
@@ -741,33 +859,34 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     puzzle, thresholds = get_puzzle_info()
 
     # Test mode reads everything from knowledge.json but writes only to the test file, which is wiped at the
-    # start of every test run. The puzzle under test is not memory, so earlier records of it are left out
-    # (otherwise the solver would "remember" the secret), and a test never resumes or skips a game.
+    # start of every test run.
     out_path = args.knowledge
     fresh_sup: list[str] = []  # what a test run adds, kept apart so the test file holds only that
     fresh_rej: list[str] = []
     if args.test:
         out_path = args.test_file
         out_path.unlink(missing_ok=True)
-        know["games"] = [g for g in know["games"] if g.get("puzzle") != puzzle]
 
-    # The latest record of this puzzle decides: unsolved means resume it, solved means skip or replay.
-    game = None if args.test else next(
-        (g for g in reversed(know["games"]) if puzzle is not None and g["puzzle"] == puzzle), None)
-    if game and game["solved"] and not args.replay:
-        emit({"type": "already_solved", "puzzle": puzzle, "secret": game["secret"],
-              "guesses": len(game["guesses"])})
-        return 0
-    if game and game["solved"]:
-        game = None  # replay: keep the earlier game in the knowledge file and start a new record
-    if not game:
-        game = {"puzzle": puzzle, "date": date.today().isoformat(), "model": args.model,
-                "solved": False, "secret": None, "guesses": [], "lessons": []}
-        know["games"].append(game)
+    # Whatever happened earlier today is ignored, however the run is started: no resuming an unfinished game,
+    # no skipping a solved puzzle, and earlier records of today's puzzle (and the supervisor lessons they wrote)
+    # stay out of what the solver reads, or it would "remember" the secret. The records remain in the file;
+    # only `view`, the copy the solver reads, is filtered.
+    game = {"puzzle": puzzle, "date": date.today().isoformat(), "model": args.model,
+            "solved": False, "secret": None, "guesses": [], "lessons": [],
+            # the setup, so results can be compared across days
+            "config": {"model": args.model, "supervisor": args.supervisor, "subagents": args.subagents,
+                       "subagent_model": args.subagent_model}}
+    earlier_today = [g for g in know["games"] if puzzle is not None and g.get("puzzle") == puzzle]
+    know["games"].append(game)
+    skip = {id(g) for g in earlier_today}
+    written = {l for g in earlier_today for l in g.get("supervisor_lessons_written", [])}
+    view = {**know, "games": [g for g in know["games"] if id(g) not in skip],
+            "supervisor_lessons": [l for l in know.get("supervisor_lessons", []) if l not in written]}
     game["thresholds"] = thresholds
-    def save() -> None:
-        save_knowledge(out_path, {"version": 1, "test_run": True, "games": [game], "supervisor_lessons": fresh_sup,
-                                  "rejected": fresh_rej} if args.test else know)
+    def save() -> None:  # games are stored as counts and a summary, never every guess
+        save_knowledge(out_path, {"version": 1, "test_run": True, "games": [compact_game(game)],
+                                  "supervisor_lessons": fresh_sup, "rejected": fresh_rej} if args.test
+                       else {**know, "games": [compact_game(g) if g is game else g for g in know["games"]]})
 
     rounds = game.setdefault("rounds", [])              # one record per round: effort, progress, scout usage
     sup_log = game.setdefault("supervisor_log", [])     # every supervisor decision, with its outcome filled in later
@@ -776,17 +895,19 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     def emit(ev: dict) -> None:  # the supervisor's decisions are also kept in the game record
         if ev["type"] == "supervisor":
             sup_log.append({"after_round": len(rounds), "previous": ev["previous"], "effort": ev["effort"],
-                            "reason": ev["reason"], "stalled": ev.get("stalled"), "outcome": None})
+                            "reason": ev["reason"], "stalled": ev.get("stalled"),
+                            "subagents": ev.get("subagents"), "previous_subagents": ev.get("previous_subagents"),
+                            "scout_tier": ev.get("scout_tier"), "outcome": None})
         raw_emit(ev)
 
     history = game["guesses"]
     resumed = len(history)
     seen = {h["guess"] for h in history} | set(know["rejected"])
     rejected: list[str] = []
-    memory = build_memory(know, game)
+    memory = build_memory(view, game)
 
-    emit({"type": "start", "puzzle": puzzle, "model": args.model, "effort": "auto", "batch": args.batch,
-          "backend": args.backend, "supervisor": args.supervisor, "test": args.test, "past_games": len(know["games"]) - 1, "thresholds": thresholds,
+    emit({"type": "start", "puzzle": puzzle, "model": args.model, "effort": "auto",
+          "backend": args.backend, "supervisor": args.supervisor, "subagents": args.subagents, "test": args.test, "past_games": len(view["games"]) - 1, "thresholds": thresholds,
           "resumed": resumed})
     for i, h in enumerate(history, 1):
         emit({"type": "guess", "n": i, "word": h["guess"], "similarity": h["similarity"],
@@ -797,6 +918,8 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     effort = "auto"  # effort is never set by hand: the supervisor picks it (medium when the supervisor is off)
     best_per_round: list[float] = [r["best_after"] for r in rounds]
     supervisor: Supervisor | None = None
+    # A number of scouts chosen by the user is fixed; with "auto" the supervisor manages it, starting at 3.
+    budget = {"subagents": 3 if args.subagents == "auto" else int(args.subagents), "tier": "cheap"}
     live = live if live is not None else {}
     try:
         while len(history) < limit and stalls < STALL_LIMIT and not stop.is_set():
@@ -809,29 +932,41 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                       "previous": args.supervisor})
                 args.supervisor = live["supervisor"]
                 supervisor = None
-            # Haiku has no effort setting, so there is nothing for a supervisor to adjust.
-            if args.supervisor == "off" or not effort_ok(args.model):
+            # The supervisor sets the budget: effort (when the model has effort levels), how many scouts, which tier.
+            if args.supervisor == "off":
                 supervisor = None
             elif supervisor is None:
-                supervisor = Supervisor(args, client, emit, know, game)
-            if effort == "auto":  # the supervisor picks the starting level; without one, medium
-                effort = supervisor.choose_start(know, thresholds) if supervisor else "medium"
+                supervisor = Supervisor(args, client, emit, view, game)
+            if effort == "auto":  # the supervisor picks the starting budget; without one, medium and the defaults
+                if supervisor:
+                    v = supervisor.choose_start(view, thresholds, budget)
+                    effort = v["effort"] if effort_ok(args.model) else "medium"
+                    if args.subagents == "auto":
+                        budget.update(subagents=v["subagents"], tier=v["tier"])
+                else:
+                    effort = "medium"
             if supervisor:
-                effort = supervisor.take() or effort  # verdict from the review that ran during the last round
+                v = supervisor.take()  # verdict from the review that ran during the last round
+                if v:
+                    if effort_ok(args.model):
+                        effort = v["effort"]
+                    if args.subagents == "auto":
+                        budget.update(subagents=v["subagents"], tier=v["tier"])
                 if history:
-                    supervisor.review(history, best_per_round, effort, thresholds)
-            emit({"type": "waiting", "effort": effort})
-            scouts = run_scouts(client, args, history, rejected, thresholds, emit)  # parallel, on a cheaper model
+                    supervisor.review(history, best_per_round, effort, thresholds, budget)
+            scout_model = args.model if budget["tier"] == "strong" else args.subagent_model
+            emit({"type": "waiting", "effort": effort, "budget": dict(budget)})
+            scouts = run_scouts(client, args, history, rejected, thresholds, emit, budget["subagents"], scout_model)
             prev_best = max((h["similarity"] for h in history), default=None)
             prev_rank = max((h["distance"] for h in history if h["distance"] and h["distance"] > 0), default=0)
             accepted: list[dict] = []
             data = call_model(client, args, SYSTEM,
-                               build_prompt(memory, history, rejected, args.batch, thresholds, scouts),
+                               build_prompt(memory, history, rejected, thresholds, scouts),
                                SCHEMA, effort)
             emit({"type": "reasoning", "text": data["reasoning"], "guesses": data["guesses"],
-                  "effort": effort, "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens")})
+                  "effort": effort, "budget": dict(budget), "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens")})
             progressed = False
-            for word in data["guesses"]:
+            for word in data["guesses"][:MAX_GUESSES]:  # the model sets the size; this only caps a runaway reply
                 if stop.is_set():
                     break
                 word = word.strip()
@@ -858,14 +993,18 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                 best_after = max(h["similarity"] for h in history)
                 rank_after = max((h["distance"] for h in history if h["distance"] and h["distance"] > 0), default=0)
                 improved = prev_best is None or best_after > prev_best or rank_after > prev_rank
-                scout_use = {role: {"proposed": len(words),
-                                    "used": [[h["guess"], h["similarity"], h["distance"]]
-                                             for h in accepted if h["guess"] in words]}
-                             for role, words in scouts.items()}
+                scout_use = {}
+                for role, words in scouts.items():  # what the scout's words were worth, as counts
+                    taken = [h for h in accepted if h["guess"] in words]
+                    scout_use[role] = {"proposed": len(words), "used": len(taken),
+                                       "sum_sim": round(sum(h["similarity"] for h in taken), 2),
+                                       "ranked": sum(1 for h in taken if h["distance"] and h["distance"] > 0)}
                 rounds.append({"n": len(rounds) + 1, "model": args.model, "effort": effort, "improved": improved,
                                "best_after": best_after, "rank_after": rank_after,
-                               "words": [h["guess"] for h in accepted],
+                               "size": len(accepted), "asked": len(data["guesses"]),
                                "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens"),
+                               "budget": {"subagents": budget["subagents"], "tier": budget["tier"],
+                                          "model": scout_model},
                                "scouts": scout_use})
                 for d in sup_log:  # the first decision at this effort that has not been judged yet gets its outcome
                     if d["outcome"] is None and d["effort"] == effort and d["after_round"] < rounds[-1]["n"]:
@@ -887,14 +1026,11 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
 
     if game["solved"]:
         emit({"type": "found", "secret": game["secret"], "guesses": len(history)})
-        try:
-            game["lessons"] = write_lessons(client, args, game, know)
-            emit({"type": "lessons", "lessons": game["lessons"]})
-        except Exception as e:  # the game is won; never lose it over a failed reflection call
-            emit({"type": "error", "message": f"could not write lessons: {e}"})
+        summarise(client, args, game, view, emit, solved=True)
         if sup_log and args.supervisor != "off":
             try:  # the supervisor reviews its own effort decisions and keeps lessons about its mistakes
-                new = reflect_supervisor(client, args, game, know)
+                new = reflect_supervisor(client, args, game, view)
+                game["supervisor_lessons_written"] = new  # so a later run on this puzzle can leave them out
                 know["supervisor_lessons"] = (know.get("supervisor_lessons", []) + new)[-30:]
                 fresh_sup.extend(new)
                 emit({"type": "supervisor_lessons", "lessons": new})
@@ -903,28 +1039,23 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
         save()
         return 0
 
-    save()
     reason = ("stopped by user" if stop.is_set()
               else "no new words proposed" if stalls >= STALL_LIMIT else "guess limit reached")
+    if not stop.is_set() and len(history) >= 5:  # a game that ran out is worth a summary too; a stop is not
+        summarise(client, args, game, view, emit, solved=False)
+    save()
     emit({"type": "stopped", "reason": reason, "best": best_guess(history)})
     return 1
 
 
-def add_user_feedback(args, rating: str, text: str) -> bool:
-    """Stores the user's feedback on the supervisor, where the next game's supervisor will read it first."""
-    label = {"low": "the effort was too low", "ok": "the effort level was fine",
-             "high": "the effort was too high"}.get(rating, "")
-    line = f"{FEEDBACK_PREFIX}: " + "; ".join(x for x in (label, text.strip()) if x)
-    if line == f"{FEEDBACK_PREFIX}: ":
-        return False
-    path = args.test_file if args.test else args.knowledge
-    know = load_knowledge(path)
-    know["supervisor_lessons"].append(line)
-    know["supervisor_lessons"] = know["supervisor_lessons"][-60:]
-    if know["games"]:
-        know["games"][-1]["supervisor_feedback"] = {"rating": rating, "text": text.strip()}
-    save_knowledge(path, know)
-    return True
+def summarise(client, args, game: dict, view: dict, emit, solved: bool) -> None:
+    """Writes the game's summary and lessons. A failure here never loses the game."""
+    try:
+        res = write_lessons(client, args, game, view, solved)
+        game["summary"], game["lessons"] = res["summary"], res["lessons"]
+        emit({"type": "lessons", "lessons": game["lessons"], "summary": game["summary"]})
+    except Exception as e:
+        emit({"type": "error", "message": f"could not write the summary: {e}"})
 
 
 def best_guess(history: list[dict]) -> str | None:
@@ -939,12 +1070,15 @@ def make_cli_emit(verbose: bool):
         if t == "start":
             resumed = f" | resuming {ev['resumed']} saved guesses" if ev["resumed"] else ""
             print(f"Puzzle {ev['puzzle']} | model: {ev['model']} | effort: {ev['effort']} | "
-                  f"batch: {ev['batch']} | past games: {ev['past_games']}{resumed}")
+                  f"past games: {ev['past_games']}{resumed}")
         elif t == "reasoning" and verbose:
             print(f"  [claude/{ev['effort']}] {ev['text']}")
         elif t == "supervisor":
             change = f"{ev['previous']} -> {ev['effort']}" if ev["effort"] != ev["previous"] else f"keep {ev['effort']}"
-            print(f"  [supervisor] {change}: {ev['reason']}")
+            scouts = ""
+            if ev.get("subagents") is not None:
+                scouts = f", scouts {ev['previous_subagents']} -> {ev['subagents']} ({ev['scout_tier']})"
+            print(f"  [supervisor] {change}{scouts}: {ev['reason']}")
         elif t == "guess" and not ev.get("resumed"):
             rank = ev["distance"]
             tag = f"{rank}/1000" if rank and rank > 0 else "far"
@@ -953,10 +1087,8 @@ def make_cli_emit(verbose: bool):
             print(f"  {ev['word']}: not in vocabulary")
         elif t == "found":
             print(f"\nFound the secret word: {ev['secret']} in {ev['guesses']} guesses")
-        elif t == "already_solved":
-            print(f"Puzzle {ev['puzzle']} already solved: {ev['secret']} ({ev['guesses']} guesses). "
-                  "Use --replay to play it again.")
         elif t == "lessons":
+            print(f"  summary: {ev.get('summary', '')}")
             for lesson in ev["lessons"]:
                 print(f"  lesson: {lesson}")
         elif t == "supervisor_lessons":
@@ -966,9 +1098,9 @@ def make_cli_emit(verbose: bool):
             for sc in ev["scouts"]:
                 print(f"  [{sc['role']}] {', '.join(sc['candidates']) or '(nothing)'}")
         elif t == "stopped":
-            print(f"\nStopped ({ev['reason']}). Best: {ev['best'] or '-'}. Progress saved; run again to resume.")
+            print(f"\nStopped ({ev['reason']}). Best: {ev['best'] or '-'}. The game is saved; running again starts a new one.")
         elif t == "error":
-            print(f"\nClaude call failed: {ev['message']}\nProgress saved; run again to resume.")
+            print(f"\nThe model call failed: {ev['message']}\nThe game is saved; running again starts a new one.")
     return emit
 
 
@@ -980,9 +1112,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--supervisor", default="haiku",
                    help="model that watches the game in the background and adjusts the solver's effort "
                         "(alias or model ID; 'off' disables; no effect when the solver itself is Haiku)")
-    p.add_argument("--subagents", type=int, default=3, choices=[0, 1, 2, 3],
+    p.add_argument("--subagents", default="auto", choices=["auto", "0", "1", "2", "3"],
                    help="scouts that explore in parallel each round and feed the solver proposals "
-                        "(field-scout, neighbour-scout, triangulator); 0 disables (default 3)")
+                        "(field-scout, neighbour-scout, triangulator). A number is fixed for the whole game "
+                        "(0 = none). auto (default): the supervisor decides each round, starting at 3")
     p.add_argument("--subagent-model", default="haiku",
                    help="model the scouts run on (alias, model ID or provider:model; default haiku)")
     p.add_argument("--backend", default="auto", choices=["auto", "cli", "api"],
@@ -991,7 +1124,6 @@ def build_parser() -> argparse.ArgumentParser:
                         "auto (default): the CLI when installed, otherwise the key. Local servers "
                         "(Ollama, LM Studio) ignore this")
     p.add_argument("--claude-bin", help="path to the Claude Code binary (cli backend; auto-detected)")
-    p.add_argument("--batch", type=int, default=5, help="guesses per Claude call (default 5)")
     p.add_argument("--max-guesses", type=int, default=0,
                    help="stop after this many accepted guesses (default 0 = no limit)")
     p.add_argument("--knowledge", type=Path, default=KNOWLEDGE_PATH, help="path of the knowledge JSON")
@@ -1000,9 +1132,8 @@ def build_parser() -> argparse.ArgumentParser:
                         "the start of every test run; --knowledge is never modified")
     p.add_argument("--test-file", type=Path, default=Path(__file__).with_name("knowledge_test.json"),
                    help="where a --test run writes (default knowledge_test.json)")
-    p.add_argument("--replay", action="store_true",
-                   help="play again even if today's puzzle is already solved (the earlier game is kept; "
-                        "the web UI always replays)")
+    p.add_argument("--races-file", type=Path, default=Path(__file__).with_name("knowledge_races.json"),
+                   help="where race results are kept (default knowledge_races.json)")
     p.add_argument("--verbose", "-v", action="store_true", help="print Claude's reasoning")
     p.add_argument("--ui", action="store_true", help="serve a live web UI and open it in the browser")
     p.add_argument("--autostart", action="store_true", help="with --ui: start solving immediately")
@@ -1020,8 +1151,9 @@ def main() -> int:
         from ui_server import serve
         return serve(args, {"play": play, "emit": cli_emit, "model_options": model_options,
                             "provider_status": providers.provider_status,
-                            "feedback": add_user_feedback,
-                            "load_knowledge": lambda: knowledge_summary(load_knowledge(args.knowledge))})
+                            "load_knowledge": lambda: knowledge_summary(load_knowledge(args.knowledge),
+                                                                       load_races(args.races_file)),
+                            "save_race": lambda race: append_race(args.races_file, race)})
     return play(args, cli_emit)
 
 
