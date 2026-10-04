@@ -13,6 +13,7 @@ Run it in the terminal (python solver.py) or with a live web UI (python solver.p
 """
 
 import argparse
+import contextlib
 import copy
 import json
 import os
@@ -24,6 +25,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -176,7 +178,8 @@ def load_knowledge(path: Path) -> dict:
 
 def save_knowledge(path: Path, know: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)  # a custom --knowledge path may point into a new folder
-    tmp = path.with_suffix(".tmp")
+    # one temporary file per process and thread: runs going at the same time must not share it
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(json.dumps(know, ensure_ascii=False, indent=1), encoding="utf-8")
     for attempt in range(8):
         try:
@@ -186,6 +189,53 @@ def save_knowledge(path: Path, know: dict) -> None:
             time.sleep(0.05 * (attempt + 1))
     path.write_text(tmp.read_text(encoding="utf-8"), encoding="utf-8")  # last resort: write in place
     tmp.unlink(missing_ok=True)
+
+
+@contextlib.contextmanager
+def file_lock(path: Path, timeout: float = 20.0, stale: float = 30.0):
+    """A lock between processes for read-modify-write of a shared file (several runs can be going at once).
+    A lock file nobody released for `stale` seconds belongs to a process that died, and is taken over."""
+    lock = path.with_name(path.name + ".lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.time() + timeout
+    while True:
+        try:
+            os.close(os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            break
+        except (FileExistsError, PermissionError):  # Windows reports a lock that is being deleted as PermissionError
+            try:
+                if time.time() - lock.stat().st_mtime > stale:
+                    lock.unlink()
+                    continue
+            except OSError:
+                pass
+            if time.time() > deadline:
+                raise RuntimeError(f"could not lock {path.name}: another run holds it")
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        with contextlib.suppress(OSError):
+            lock.unlink()
+
+
+def save_game(path: Path, game: dict, fresh_sup: list[str], fresh_rej: list[str]) -> None:
+    """Saves one run's game into the shared knowledge file without overwriting what other runs wrote meanwhile:
+    the file is re-read under a lock, this game's record is replaced (or added) by its id, and only the words and
+    lessons this run produced are added."""
+    with file_lock(path):
+        disk = load_knowledge(path)
+        record = compact_game(game)
+        for i, g in enumerate(disk["games"]):
+            if g.get("id") == game["id"]:
+                disk["games"][i] = record
+                break
+        else:
+            disk["games"].append(record)
+        disk["rejected"] += [w for w in fresh_rej if w not in disk["rejected"]]
+        disk["supervisor_lessons"] = (disk["supervisor_lessons"]
+                                      + [l for l in fresh_sup if l not in disk["supervisor_lessons"]])[-30:]
+        save_knowledge(path, disk)
 
 
 def format_path(guesses: list[dict], head: int = 8, tail: int = 12) -> str:
@@ -261,6 +311,81 @@ def build_memory(know: dict, current: dict) -> str:
     return "Knowledge from previous games:\n" + "\n\n".join(parts) + "\n\n"
 
 
+# ---------- speed mode ----------
+# Speed mode wants the least WALL-CLOCK TIME to the word. That is not the fewest guesses, and not the strongest
+# model: a stronger model or a higher effort thinks longer in every round, and a weak model sends many unrelated
+# guesses and needs many rounds. Where the balance lies is measured, not assumed. Each profile is a fixed setup
+# (model, effort, number of scouts, scout model), and every game and race lane that ran it records its seconds.
+# The priors below are rough: the only measurement so far was a Sonnet lane with Haiku scouts at low effort, about
+# 75 seconds, and nothing assumes that more strength or more effort is faster. The real times replace the priors
+# as they arrive, and a profile with few runs is tried more (it gets the benefit of the doubt). The page's
+# calibration button races every profile on the same puzzle to fill the table in one go.
+SPEED_PROFILES = [
+    {"model": "sonnet", "effort": "low", "subagents": "3", "subagent_model": "haiku", "prior": 80},
+    {"model": "sonnet", "effort": "medium", "subagents": "3", "subagent_model": "haiku", "prior": 95},
+    {"model": "opus", "effort": "low", "subagents": "3", "subagent_model": "haiku", "prior": 115},
+    {"model": "sonnet", "effort": "high", "subagents": "3", "subagent_model": "sonnet", "prior": 130},
+]
+SPEED_PENALTY = 300       # a run that did not find the word counts as at least this many seconds
+SPEED_PRIOR_WEIGHT = 0.5  # a prior weighs as much as this many measured runs: measurements win quickly
+SPEED_EXPLORE = 30        # seconds of benefit of the doubt for a profile with no runs; shrinks as runs accumulate
+
+SPEED_SYSTEM = """# Speed mode
+This game is scored by the LEAST WALL-CLOCK TIME to the secret word, not by the number of guesses. A round costs
+tens of seconds because of the model call; a guess costs a fraction of a second. So fewer rounds beat fewer guesses:
+- Submit wide batches (6 to 10) while you are still finding the field, and 3 to 6 once you have a ranked word,
+  instead of one careful word at a time.
+- Every word must still be a deliberate candidate in the field you are exploring. Filler or unrelated words waste
+  a batch, and a wide batch only pays off when each word has a reason.
+- Do not deliberate at length. Pick the most promising direction and go; the sub-agents' proposals are free speed."""
+
+
+def system_text(args) -> str:
+    return SYSTEM + ("\n\n" + SPEED_SYSTEM if getattr(args, "speed", False) else "")
+
+
+def model_family(model: str | None) -> str | None:
+    return next((f for f in MODELS if f in (model or "").lower()), None)
+
+
+def profile_key(cfg: dict) -> tuple:
+    """What makes two runs the same speed setup: model family, effort, scouts, scout model family."""
+    return (model_family(cfg.get("model")), cfg.get("effort"), str(cfg.get("subagents")),
+            model_family(cfg.get("subagent_model") or "haiku"))
+
+
+def speed_lanes() -> list[dict]:
+    """The profiles as race lanes, for the page's calibration button."""
+    return [{"model": p["model"], "effort": p["effort"], "subagents": p["subagents"],
+             "subagent_model": p["subagent_model"], "supervisor": "off"} for p in SPEED_PROFILES]
+
+
+def speed_estimates(know: dict, races: list[dict]) -> list[dict]:
+    """The profiles with their expected seconds to solve, best first. A prior blended with the measured times of
+    games and race lanes that ran the same setup; a run that did not find the word counts as a long one. `chosen`
+    marks the profile to run: the best estimate after the benefit of the doubt for profiles with few runs."""
+    runs: dict[tuple, list[tuple[bool, float]]] = defaultdict(list)
+    for g in know["games"]:
+        cfg = g.get("config") or {}
+        if cfg.get("speed") and g.get("seconds"):
+            runs[profile_key(cfg)].append((bool(g.get("solved")), g["seconds"]))
+    for race in races:
+        for lane in race.get("lanes", []):
+            if lane.get("seconds"):
+                runs[profile_key(lane["config"])].append((bool(lane.get("solved")), lane["seconds"]))
+    out = []
+    for p in SPEED_PROFILES:
+        seen = runs[profile_key(p)]
+        total = sum(s if solved else max(s, SPEED_PENALTY) for solved, s in seen)
+        est = (p["prior"] * SPEED_PRIOR_WEIGHT + total) / (SPEED_PRIOR_WEIGHT + len(seen))
+        out.append({**p, "samples": len(seen), "unsolved": sum(1 for solved, _ in seen if not solved),
+                    "seconds": round(est), "score": est - SPEED_EXPLORE / (len(seen) + 1) ** 0.5})
+    best = min(out, key=lambda e: e["score"])
+    for e in out:
+        e["chosen"] = e is best
+    return sorted(out, key=lambda e: e["seconds"])
+
+
 def knowledge_stats(know: dict) -> list[dict]:
     """One row per game for the UI's statistics: how long it took and under which setup."""
     out = []
@@ -274,6 +399,7 @@ def knowledge_stats(know: dict) -> list[dict]:
             "subagents": (g.get("config") or {}).get("subagents",
                                                      max((len(r.get("scouts") or {}) for r in rounds), default=0)),
             "supervisor": bool(g.get("supervisor_log")),
+            "seconds": g.get("seconds"),
             "replay": bool(g.get("replay")),
         })
     return out
@@ -284,9 +410,10 @@ def load_races(path: Path) -> list[dict]:
 
 
 def append_race(path: Path, race: dict) -> None:
-    races = load_races(path)
-    races.append(race)
-    path.write_text(json.dumps(races, ensure_ascii=False, indent=1), encoding="utf-8")
+    with file_lock(path):  # two races finishing together must both be kept
+        races = load_races(path)
+        races.append(race)
+        path.write_text(json.dumps(races, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def knowledge_summary(know: dict, races: list[dict] | None = None) -> dict:
@@ -319,21 +446,71 @@ def get_puzzle_info() -> tuple[int | None, dict | None]:
     return (int(m.group(1)) if m else None), thresholds
 
 
+class SiteBusy(RuntimeError):
+    """The site is rate limiting or unreachable, so nothing is known about the word: it is NOT a rejected word."""
+
+
+SITE_MIN_GAP = 0.25       # seconds between two requests to the site, across every game running in this process
+SITE_BACKOFF_BASE = 2.0   # first wait after a failure; it doubles up to the cap
+SITE_BACKOFF_CAP = 30.0
+SITE_BUDGET = 300.0       # how long one word may wait for the site before the game stops with an error
+_site_lock = threading.Lock()
+_site_next = 0.0          # the earliest time the next request may go out: spacing, and the cooldown after a 429
+SITE_LISTENERS: set = set()  # called with {"status", "wait"} whenever the site makes us wait; the games report it
+
+
+def _site_wait() -> None:
+    global _site_next
+    with _site_lock:
+        now = time.time()
+        start = max(now, _site_next)
+        _site_next = start + SITE_MIN_GAP
+    time.sleep(max(0.0, start - now))
+
+
+def _site_cooldown(seconds: float) -> None:
+    """Every thread waits, not only the one that was refused: a rate limit applies to all of them."""
+    global _site_next
+    with _site_lock:
+        _site_next = max(_site_next, time.time() + seconds)
+
+
 def get_distance(word: str) -> dict | None:
-    """Returns the site's record for a word, or None if the word is not in the vocabulary."""
-    for attempt in range(3):
+    """The site's record for a word, or None when the word is not in its vocabulary (HTTP 400, and only that).
+    HTTP 429, server errors and timeouts mean the site is busy: wait and retry, sharing the wait with every other
+    game, and raise SiteBusy if it lasts longer than SITE_BUDGET. A busy site must never turn a good word into a
+    rejected one, which would also be remembered as a vocabulary fact."""
+    deadline = time.time() + SITE_BUDGET
+    attempt = 0
+    while True:
+        _site_wait()
+        status, retry_after = None, None
         try:
             r = requests.get(f"{SITE}/api/distance", params={"word": word}, headers=HEADERS, timeout=15)
+            status, retry_after = r.status_code, r.headers.get("Retry-After")
         except requests.RequestException:
-            time.sleep(1 + attempt)
-            continue
-        if r.status_code == 200:
+            pass
+        if status == 200:
             data = r.json()
             return data[0] if data else None
-        if r.status_code == 400:
+        if status == 400:
             return None
-        time.sleep(1 + attempt)
-    return None
+        attempt += 1
+        try:
+            wait = float(retry_after) if status == 429 and retry_after else None
+        except ValueError:
+            wait = None
+        if wait is None:
+            wait = min(SITE_BACKOFF_CAP, SITE_BACKOFF_BASE * 2 ** (attempt - 1))
+        wait += random.uniform(0, 0.5 * wait)
+        if time.time() + wait > deadline:
+            raise SiteBusy(f"the site kept refusing (HTTP {status or 'no answer'}) for {SITE_BUDGET:.0f} seconds; "
+                           "it is probably rate limiting this computer, so wait a few minutes and run again")
+        _site_cooldown(wait)
+        for listener in list(SITE_LISTENERS):
+            with contextlib.suppress(Exception):
+                listener({"status": status, "wait": round(wait, 1)})
+        time.sleep(wait)
 
 
 # ---------- Claude ----------
@@ -808,10 +985,9 @@ class Supervisor:
         self.know, self.game = know, game
         self.digest = supervisor_digest(know, game)  # fixed for the game; this game's decisions are added per review
         self.model = args.supervisor
-        try:  # local models are listed once per game; this is quick and empty when no local server runs
-            self.local = providers.local_models() if args.subagent_model == "auto" else []
-        except Exception:
-            self.local = []
+        self.local: list[dict] = []  # local models, filled in the background: probing them can take seconds on Windows
+        if args.subagent_model == "auto":
+            threading.Thread(target=self._load_local, daemon=True).start()
         self.thread: threading.Thread | None = None
         self.verdict: dict | None = None
 
@@ -831,6 +1007,12 @@ class Supervisor:
         if not need or rng.random() >= EXPERIMENT_CHANCE:
             return None
         return min(need, key=lambda e: (counts[e], EFFORTS.index(e)))
+
+    def _load_local(self) -> None:
+        try:
+            self.local = providers.local_models()
+        except Exception:
+            pass
 
     def _models_text(self, budget: dict) -> str:
         fixed = [what for what, is_fixed in (("the number of scouts", self.args.subagents != "auto"),
@@ -934,16 +1116,40 @@ class Supervisor:
 # ---------- game ----------
 
 def play(args, emit, stop: threading.Event | None = None, live: dict | None = None) -> int:
+    """Plays today's puzzle (see _play). While it runs, waits imposed by the site are reported as events."""
+    def on_throttle(info: dict) -> None:
+        emit({"type": "throttled", **info})
+
+    SITE_LISTENERS.add(on_throttle)
+    try:
+        return _play(args, emit, stop, live)
+    finally:
+        SITE_LISTENERS.discard(on_throttle)
+
+
+def _play(args, emit, stop: threading.Event | None = None, live: dict | None = None) -> int:
     """Plays today's puzzle. Reports progress by calling emit(event_dict); returns a process exit code.
 
     `live` is a dict the caller may change while the game runs ("model", "supervisor"); the new values
     apply from the next round.
-    Event types: start, waiting, reasoning, supervisor, model, guess, rejected, found, lessons, supervisor_lessons, subagents, stopped, error.
+    Event types: start, waiting, throttled, reasoning, supervisor, model, guess, rejected, found, lessons, supervisor_lessons, subagents, stopped, error.
     """
     stop = stop or threading.Event()
     client = None  # the Anthropic client is created on first use (see call_model)
     know = load_knowledge(args.knowledge)
     puzzle, thresholds = get_puzzle_info()
+
+    # Speed mode picks every setting itself, from measured times, and the user cannot change them.
+    speed_estimate = None
+    speed_profile = None
+    if args.speed:
+        speed_estimate = speed_estimates(know, load_races(args.races_file) if getattr(args, "races_file", None) else [])
+        chosen = next(e for e in speed_estimate if e["chosen"])
+        # A fixed setup, so it can be measured: no supervisor changing it round by round, no experiments.
+        args.model, args.speed_effort, args.subagents, args.subagent_model = (
+            chosen["model"], chosen["effort"], chosen["subagents"], chosen["subagent_model"])
+        args.supervisor, args.experiments = "off", False
+        speed_profile = f"{chosen['model']} / {chosen['effort']} / {chosen['subagents']} scouts on {chosen['subagent_model']}"
 
     # Test mode reads everything from knowledge.json but writes only to the test file, which is wiped at the
     # start of every test run.
@@ -958,11 +1164,12 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     # no skipping a solved puzzle, and earlier records of today's puzzle (and the supervisor lessons they wrote)
     # stay out of what the solver reads, or it would "remember" the secret. The records remain in the file;
     # only `view`, the copy the solver reads, is filtered.
-    game = {"puzzle": puzzle, "date": date.today().isoformat(), "model": args.model,
+    game = {"id": uuid.uuid4().hex, "puzzle": puzzle, "date": date.today().isoformat(), "model": args.model,
             "solved": False, "secret": None, "guesses": [], "lessons": [],
             # the setup, so results can be compared across days
             "config": {"model": args.model, "supervisor": args.supervisor, "subagents": args.subagents,
-                       "subagent_model": args.subagent_model}}
+                       "subagent_model": args.subagent_model, "speed": bool(args.speed),
+                       "effort": getattr(args, "speed_effort", None), "speed_profile": speed_profile}}
     earlier_today = [g for g in know["games"] if puzzle is not None and g.get("puzzle") == puzzle]
     know["games"].append(game)
     skip = {id(g) for g in earlier_today}
@@ -970,10 +1177,16 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     view = {**know, "games": [g for g in know["games"] if id(g) not in skip],
             "supervisor_lessons": [l for l in know.get("supervisor_lessons", []) if l not in written]}
     game["thresholds"] = thresholds
+    t_start = time.time()
+    clock = {"end": None}  # set when the word is found or the game ends, so the summary calls do not count
+
     def save() -> None:  # games are stored as counts and a summary, never every guess
-        save_knowledge(out_path, {"version": 1, "test_run": True, "games": [compact_game(game)],
-                                  "supervisor_lessons": fresh_sup, "rejected": fresh_rej} if args.test
-                       else {**know, "games": [compact_game(g) if g is game else g for g in know["games"]]})
+        game["seconds"] = round((clock["end"] or time.time()) - t_start)  # wall-clock time; speed mode learns from it
+        if args.test:
+            save_knowledge(out_path, {"version": 1, "test_run": True, "games": [compact_game(game)],
+                                      "supervisor_lessons": fresh_sup, "rejected": fresh_rej})
+        else:  # merged into the file as it is now, so a run going at the same time is not overwritten
+            save_game(out_path, game, fresh_sup, fresh_rej)
 
     rounds = game.setdefault("rounds", [])              # one record per round: effort, progress, scout usage
     sup_log = game.setdefault("supervisor_log", [])     # every supervisor decision, with its outcome filled in later
@@ -995,15 +1208,23 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     memory = build_memory(view, game)
 
     emit({"type": "start", "puzzle": puzzle, "model": args.model, "effort": "auto" if effort_ok(args.model) else None,
-          "backend": args.backend, "supervisor": args.supervisor, "subagents": args.subagents, "test": args.test, "past_games": len(view["games"]) - 1, "thresholds": thresholds,
+          "backend": args.backend, "supervisor": args.supervisor, "subagents": args.subagents, "test": args.test, "speed": args.speed, "past_games": len(view["games"]) - 1, "thresholds": thresholds,
           "resumed": resumed})
+    if speed_estimate:
+        emit({"type": "speed", "profile": speed_profile, "model": args.model, "effort": args.speed_effort,
+              "calibrated": any(e["samples"] for e in speed_estimate),
+              "subagents": args.subagents, "subagent_model": args.subagent_model,
+              "estimates": [{k: e[k] for k in ("model", "effort", "subagents", "subagent_model", "seconds", "samples",
+                                               "unsolved", "chosen")} for e in speed_estimate]})
     for i, h in enumerate(history, 1):
         emit({"type": "guess", "n": i, "word": h["guess"], "similarity": h["similarity"],
               "distance": h["distance"], "resumed": True})
 
     limit = args.max_guesses or float("inf")
     stalls = 0
-    effort = "auto"  # effort is never set by hand: the supervisor picks it (medium when the supervisor is off)
+    # Effort is never set by hand: the supervisor picks it (medium when it is off). Speed mode is the exception:
+    # its profile fixes the effort, so that the setup it measures is the setup it runs.
+    effort = getattr(args, "speed_effort", None) or "auto"
     best_per_round: list[float] = [r["best_after"] for r in rounds]
     supervisor: Supervisor | None = None
     # A number of scouts chosen by the user is fixed; with "auto" the supervisor manages it, starting at 3.
@@ -1012,11 +1233,12 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     live = live if live is not None else {}
     try:
         while len(history) < limit and stalls < STALL_LIMIT and not stop.is_set():
-            # Model and supervisor can be switched while the game runs; the change applies from this round.
-            if live.get("model") and live["model"] != args.model:
+            round_t0 = time.time()
+            # Model and supervisor can be switched while the game runs (not in speed mode, which locks them).
+            if not args.speed and live.get("model") and live["model"] != args.model:
                 emit({"type": "model", "kind": "main", "model": live["model"], "previous": args.model})
                 args.model = live["model"]
-            if live.get("supervisor") and live["supervisor"] != args.supervisor:
+            if not args.speed and live.get("supervisor") and live["supervisor"] != args.supervisor:
                 emit({"type": "model", "kind": "supervisor", "model": live["supervisor"],
                       "previous": args.supervisor})
                 args.supervisor = live["supervisor"]
@@ -1062,7 +1284,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
             prev_best = max((h["similarity"] for h in history), default=None)
             prev_rank = max((h["distance"] for h in history if h["distance"] and h["distance"] > 0), default=0)
             accepted: list[dict] = []
-            data = call_model(client, args, SYSTEM,
+            data = call_model(client, args, system_text(args),
                                build_prompt(memory, history, rejected, thresholds, scouts),
                                SCHEMA, round_effort)
             emit({"type": "reasoning", "text": data["reasoning"], "guesses": data["guesses"],
@@ -1104,6 +1326,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                 rounds.append({"n": len(rounds) + 1, "model": args.model, "effort": shown_effort, "improved": improved,
                                "best_after": best_after, "rank_after": rank_after,
                                "size": len(accepted), "asked": len(data["guesses"]),
+                               "seconds": round(time.time() - round_t0, 1),
                                "experiment": bool(tried), "chosen_effort": effort if tried else None,
                                "stalled_before": stalled_now,
                                "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens"),
@@ -1129,8 +1352,9 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
         emit({"type": "error", "message": str(e)})
         return 2
 
+    clock["end"] = time.time()
     if game["solved"]:
-        emit({"type": "found", "secret": game["secret"], "guesses": len(history)})
+        emit({"type": "found", "secret": game["secret"], "guesses": len(history), "seconds": round(clock["end"] - t_start, 1)})
         summarise(client, args, game, view, emit, solved=True)
         if sup_log and args.supervisor != "off":
             try:  # the supervisor reviews its own effort decisions and keeps lessons about its mistakes
@@ -1149,7 +1373,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     if not stop.is_set() and len(history) >= 5:  # a game that ran out is worth a summary too; a stop is not
         summarise(client, args, game, view, emit, solved=False)
     save()
-    emit({"type": "stopped", "reason": reason, "best": best_guess(history)})
+    emit({"type": "stopped", "reason": reason, "best": best_guess(history), "seconds": round(clock["end"] - t_start, 1)})
     return 1
 
 
@@ -1169,7 +1393,14 @@ def best_guess(history: list[dict]) -> str | None:
 
 # ---------- command line ----------
 
+def fmt_clock(seconds: float) -> str:
+    s = int(seconds)
+    return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}" if s >= 3600 else f"{s // 60:02d}:{s % 60:02d}"
+
+
 def make_cli_emit(verbose: bool):
+    last_throttle = [0.0]
+
     def emit(ev: dict) -> None:
         t = ev["type"]
         if t == "start":
@@ -1193,11 +1424,25 @@ def make_cli_emit(verbose: bool):
         elif t == "rejected":
             print(f"  {ev['word']}: not in vocabulary")
         elif t == "found":
-            print(f"\nFound the secret word: {ev['secret']} in {ev['guesses']} guesses")
+            print(f"\nFound the secret word: {ev['secret']} in {ev['guesses']} guesses, "
+                  f"time {fmt_clock(ev.get('seconds', 0))}")
         elif t == "lessons":
             print(f"  summary: {ev.get('summary', '')}")
             for lesson in ev["lessons"]:
                 print(f"  lesson: {lesson}")
+        elif t == "speed":
+            print("  [speed] expected seconds to solve: "
+                  + "; ".join(f"{e['model']}/{e['effort']}/{e['subagents']} scouts on {e['subagent_model']} {e['seconds']}s"
+                              + (f" ({e['samples']} runs)" if e["samples"] else " (first guess)")
+                              + (" <- chosen" if e["chosen"] else "") for e in ev["estimates"]))
+            if not ev.get("calibrated"):
+                print("  [speed] not calibrated yet, so these are first guesses and the choice is not based on "
+                      "measurements; a race of the profiles (the page's Calibrate speed button) fixes that")
+        elif t == "throttled":
+            now = time.time()
+            if now - last_throttle[0] > 5:  # one line per burst, not one per refused request
+                last_throttle[0] = now
+                print(f"  [site] rate limited (HTTP {ev.get('status') or 'no answer'}), waiting {ev['wait']}s")
         elif t == "experiment":
             print(f"  [experiment] effort {ev['chosen']} chosen, this round runs at {ev['tried']} to gather data")
         elif t == "supervisor_lessons":
@@ -1207,7 +1452,8 @@ def make_cli_emit(verbose: bool):
             for sc in ev["scouts"]:
                 print(f"  [{sc['role']}] {', '.join(sc['candidates']) or '(nothing)'}")
         elif t == "stopped":
-            print(f"\nStopped ({ev['reason']}). Best: {ev['best'] or '-'}. The game is saved; running again starts a new one.")
+            print(f"\nStopped ({ev['reason']}) after {fmt_clock(ev.get('seconds', 0))}. Best: {ev['best'] or '-'}. "
+                  "The game is saved; running again starts a new one.")
         elif t == "error":
             print(f"\nThe model call failed: {ev['message']}\nThe game is saved; running again starts a new one.")
     return emit
@@ -1221,6 +1467,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--supervisor", default="haiku",
                    help="model that watches the game in the background and adjusts the solver's effort "
                         "(alias or model ID; 'off' disables; no effect when the solver itself is Haiku)")
+    p.add_argument("--speed", action="store_true",
+                   help="maximum speed: reach the word in the least wall-clock time. The model, supervisor, scouts and "
+                        "experiments are chosen automatically from measured times and locked; those options are ignored")
     p.add_argument("--no-experiments", dest="experiments", action="store_false",
                    help="turn off effort experiments (by default a round sometimes runs one or two effort levels "
                         "above the supervisor's choice, at random, to learn what effort is worth)")
@@ -1253,6 +1502,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--autostart", action="store_true", help="with --ui: start solving immediately")
     p.add_argument("--port", type=int, default=8765, help="with --ui: first port to try (default 8765)")
     p.add_argument("--no-browser", action="store_true", help="with --ui: do not open the browser")
+    p.set_defaults(speed_effort=None)  # set by speed mode only
     return p
 
 
@@ -1260,11 +1510,14 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # Hebrew output on Windows consoles (cp1252 by default)
     parser = build_parser()
     args = parser.parse_args()
+    if args.speed:
+        print("Speed mode: the model, supervisor, scouts and experiments are chosen automatically; "
+              "those options are ignored.")
     cli_emit = make_cli_emit(args.verbose)
     if args.ui:
         from ui_server import serve
         return serve(args, {"play": play, "emit": cli_emit, "model_options": model_options,
-                            "provider_status": providers.provider_status,
+                            "provider_status": providers.provider_status, "speed_profiles": speed_lanes,
                             "load_knowledge": lambda: knowledge_summary(load_knowledge(args.knowledge),
                                                                        load_races(args.races_file)),
                             "save_race": lambda race: append_race(args.races_file, race)})

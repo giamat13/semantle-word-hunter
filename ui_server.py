@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import re
+import sys
 import tempfile
 import threading
 import time
@@ -17,7 +18,21 @@ from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+EFFORTS = ["low", "medium", "high", "xhigh", "max"]
+
 UI_PATH = Path(__file__).with_name("ui.html")
+
+
+class Server(ThreadingHTTPServer):
+    # On Windows, SO_REUSEADDR lets a second process bind a port that is already in use, so two runs would silently
+    # share one port and one of them would be unreachable. Elsewhere it only avoids "address in use" after a restart.
+    allow_reuse_address = os.name != "nt"
+
+    def handle_error(self, request, client_address):
+        # The browser closed the page or a tab reloaded: that is not a fault, and it printed a traceback each time.
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            return
+        super().handle_error(request, client_address)
 
 
 class Hub:
@@ -34,6 +49,7 @@ class Hub:
         self.pending = None  # what to start once the current run has stopped (a run or a race was requested)
         self.last_args = base_args  # arguments of the latest run
         self.live: dict = {}  # model / supervisor of the running game; play() reads it every round
+        self.speed_run = False  # speed mode locks the setup, including the live model switch
 
     def emit(self, ev: dict) -> None:
         with self.cond:
@@ -58,6 +74,7 @@ class Hub:
         for key, value in overrides.items():
             setattr(run_args, key, value)
         self.last_args = run_args
+        self.speed_run = bool(getattr(run_args, "speed", False))
         self.emit({"type": "reset"})
         self.live = {"model": run_args.model, "supervisor": run_args.supervisor}
         threading.Thread(target=self._run, args=(run_args, self.stop, self.live), daemon=True).start()
@@ -66,7 +83,7 @@ class Hub:
     def set_live(self, changes: dict) -> bool:
         """Switch model and/or supervisor of the running game; applies from the next round."""
         with self.lock:
-            if not self.running:
+            if not self.running or self.speed_run:
                 return False
             self.live.update(changes)
             return True
@@ -137,8 +154,12 @@ class Hub:
 
             a = argparse.Namespace(**vars(self.base_args))
             a.model, a.supervisor, a.subagents = cfg["model"], cfg["supervisor"], cfg["subagents"]
+            a.speed_effort = cfg.get("effort")  # None unless the lane fixes it
+            if cfg.get("subagent_model"):
+                a.subagent_model = cfg["subagent_model"]
             a.test, a.max_guesses = True, max_guesses
             a.experiments = False  # a race compares fixed setups; random effort changes would blur it
+            a.speed = False        # ...and each lane has the setup it was given
             a.test_file = Path(tempfile.gettempdir()) / f"hunter_race_{os.getpid()}_{i}.json"
             temp_files.append(a.test_file)
             code = 2
@@ -169,7 +190,8 @@ class Hub:
         finally:
             for f in temp_files:
                 f.unlink(missing_ok=True)
-                f.with_suffix(".tmp").unlink(missing_ok=True)
+                for leftover in f.parent.glob(f.name + ".*.tmp"):
+                    leftover.unlink(missing_ok=True)
             with self.lock:
                 self.running = False
                 pending, self.pending = self.pending, None
@@ -203,8 +225,9 @@ class Hub:
             "running": self.running,
             "defaults": {"model": b.model, "supervisor": b.supervisor, "backend": b.backend,
                          "subagents": b.subagents, "subagent_model": b.subagent_model, "test": b.test,
-                         "experiments": b.experiments},
+                         "experiments": b.experiments, "speed": getattr(b, "speed", False)},
             "live": dict(self.live),
+            "speed_profiles": self.hooks["speed_profiles"]() if "speed_profiles" in self.hooks else [],
             "knowledge": self.hooks["load_knowledge"](),
         }
 
@@ -231,9 +254,15 @@ def clean_lanes(raw) -> tuple[list[dict], int]:
         model, sup = item.get("model"), item.get("supervisor")
         if not (isinstance(model, str) and MODEL_NAME.match(model) and model != "off"):
             continue
-        lanes.append({"model": model,
+        lane = {"model": model,
                       "supervisor": sup if isinstance(sup, str) and MODEL_NAME.match(sup) else "off",
-                      "subagents": str(item["subagents"]) if str(item.get("subagents")) in ("auto", "0", "1", "2", "3") else "0"})
+                      "subagents": str(item["subagents"]) if str(item.get("subagents")) in ("auto", "0", "1", "2", "3") else "0"}
+        if item.get("effort") in EFFORTS:  # a lane may fix the effort and the scouts' model (speed profiles do)
+            lane["effort"] = item["effort"]
+        scout_model = item.get("subagent_model")
+        if isinstance(scout_model, str) and MODEL_NAME.match(scout_model):
+            lane["subagent_model"] = scout_model
+        lanes.append(lane)
     limit = body.get("max_guesses")
     return lanes, (max(10, min(300, limit)) if isinstance(limit, int) else 100)
 
@@ -251,6 +280,9 @@ def clean_overrides(raw: dict, hooks: dict) -> dict:
         out["experiments"] = raw["experiments"]
     if str(raw.get("subagents")) in ("auto", "0", "1", "2", "3"):
         out["subagents"] = str(raw["subagents"])
+    if raw.get("speed") is True:  # speed mode chooses these itself: whatever the page sent for them is dropped
+        out = {k: v for k, v in out.items() if k not in ("model", "supervisor", "subagents", "subagent_model", "experiments")}
+        out["speed"] = True
     return out
 
 
@@ -348,7 +380,7 @@ def serve(args: argparse.Namespace, hooks: dict) -> int:
     server = None
     for port in range(args.port, args.port + 20):
         try:
-            server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(hub, hooks, port))
+            server = Server(("127.0.0.1", port), make_handler(hub, hooks, port))
             break
         except OSError:
             continue

@@ -256,6 +256,9 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
 .item.scouts { background: transparent; }
 .scout { display: grid; gap: 4px; }
 .scout .role { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.chip.clock { padding: 4px 14px; gap: 8px; color: var(--ink-2); }
+.chip.clock b { font-size: 18px; color: var(--ink); font-weight: 600; min-width: 3ch; }
+.chip.clock.run b { color: var(--accent); }
 .switch { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pick { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--ink-2); max-width: 240px; }
 .pick:hover { border-color: var(--ink-3); }
@@ -279,6 +282,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
         <span class="chip" id="modelNote" hidden>יחול מהסבב הבא</span></span>
     </div>
     <div class="actions">
+      <span class="chip clock" id="clockChip" title="כמה זמן לקח: רץ בזמן המשחק, ונעצר כשנמצאה המילה"><span>זמן</span> <b id="clock">00:00</b></span>
       <span class="status" id="status" data-state="idle" role="status" aria-live="polite"><span class="dot"></span><span id="statusText">מוכן</span></span>
       <button class="btn primary" id="btnRun">הרץ</button>
       <button class="btn danger" id="btnStop" hidden>עצור</button>
@@ -289,6 +293,10 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
 
   <section class="settings" id="settings" hidden>
     <h2>הרצה חדשה</h2>
+    <label class="check wide"><input type="checkbox" id="chkSpeed"> <b>מקסימום מהירות</b>: מתאים אוטומטית מודל והגדרות כדי להגיע למילה בזמן הקצר ביותר, לא חלש מדי ולא חזק מדי. כל ההגדרות נבחרות לבד ונעולות.</label>
+    <div class="hint" id="speedInfo" hidden></div>
+    <div class="race-bar"><button class="btn" id="btnCalibrate" type="button">כייל מהירות: מירוץ בין פרופילי המהירות</button>
+      <span class="hint">מריץ את ארבעת הפרופילים במקביל על החידה של היום ושומר את הזמנים. מצב מקסימום מהירות בוחר לפי הזמנים שנמדדו.</span></div>
     <div class="fields">
       <div class="field"><label for="selSup">מפקח ברקע</label><select id="selSup"></select></div>
       <div class="field"><label for="selScouts">סוכני משנה</label><select id="selScouts">
@@ -394,11 +402,24 @@ const $ = (id) => document.getElementById(id);
 const EFFORT_LABEL = { auto: "אוטומטי", low: "נמוך", medium: "בינוני", high: "גבוה", xhigh: "גבוה מאוד", max: "מקסימלי" };
 
 let S;            // per-run state, reset on every run
-let settings = { model: "sonnet", supervisor: "haiku", backend: "auto", subagents: "auto", subagent_model: "auto", test: false, experiments: true };
+let settings = { model: "sonnet", supervisor: "haiku", backend: "auto", subagents: "auto", subagent_model: "auto", test: false, experiments: true, speed: false };
 let waitTimer = null;
+let clock = { t0: null, end: null };   // server timestamps (seconds): the game's start, and the moment it ended
 let sortBy = "score";
 
+function fmtClock(sec) {
+  const s = Math.max(0, Math.floor(sec)), pad = (n) => String(n).padStart(2, "0");
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}` : `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+}
+function tickClock() {      // always shown: counts while a game runs, then stays on how long it took
+  const now = Date.now() / 1000, running = clock.t0 != null && clock.end == null;
+  $("clock").textContent = fmtClock(clock.t0 == null ? 0 : (clock.end ?? now) - clock.t0);
+  $("clockChip").classList.toggle("run", running);
+}
+setInterval(tickClock, 250);
+
 function resetState() {
+  clock.t0 = clock.end = null;
   S = { guesses: [], rounds: 0, thresholds: null, run: null, state: "idle", effort: null, think: null,
         rejected: [], waitEl: null, waitStart: 0, lastChips: [], solved: null };
   $("feed").replaceChildren(); $("rows").replaceChildren();
@@ -613,8 +634,10 @@ function renderStats(stats) {
     lab.append(b, ` · ${scoutsText(g0.subagents)} · ${g0.supervisor ? "עם מפקח" : "בלי מפקח"}`);
     row.appendChild(lab);
     const lost = gr.gs.length - gr.solved.length;
+    const secs = gr.solved.map((g) => g.seconds).filter(Boolean);
     const meta = h("div", "cfg-meta" + (gr.gs.length < 3 ? " few" : ""),
-      `${gr.gs.length} משחקים · ${gr.med == null ? "אף אחד לא נפתר" : `חציון ${gr.med} ניחושים`}${lost && gr.med != null ? ` · ${lost} לא נפתרו` : ""}`);
+      `${gr.gs.length} משחקים · ${gr.med == null ? "אף אחד לא נפתר" : `חציון ${gr.med} ניחושים`}${lost && gr.med != null ? ` · ${lost} לא נפתרו` : ""}` +
+      (secs.length ? ` · זמן חציוני ${fmtSec(median(secs) * 1000)}` : ""));
     few = few || gr.gs.length < 3; row.appendChild(meta);
     const strip = h("div", "strip");
     for (const g of gr.gs) { const d = h("i", "sd" + (g.solved ? "" : " un")); d.style.left = Math.min(100, (g.guesses / ymax) * 100) + "%"; d.title = `חידה ${g.puzzle} · ${g.guesses} ניחושים`; strip.appendChild(d); }
@@ -643,7 +666,9 @@ const fmtSec = (ms) => { const s = Math.round(ms / 1000); return s >= 60 ? `${Ma
 function labelNode(c) {      // "sonnet · 3 סיירים · עם מפקח", with the Latin model name isolated from the Hebrew
   const span = h("span"), b = document.createElement("bdi");
   b.textContent = shortModel(c.model);
-  span.append(b, ` · ${scoutsText(c.subagents)} · ${c.supervisor && c.supervisor !== "off" ? "עם מפקח" : "בלי מפקח"}`);
+  span.append(b, ` · ${c.effort ? "מאמץ " + (EFFORT_LABEL[c.effort] || c.effort) + " · " : ""}${scoutsText(c.subagents)}${c.subagent_model ? " על " : ""}`);
+  if (c.subagent_model) { const sb = document.createElement("bdi"); sb.textContent = shortModel(c.subagent_model); span.appendChild(sb); }
+  span.append(c.effort ? "" : ` · ${c.supervisor && c.supervisor !== "off" ? "עם מפקח" : "בלי מפקח"}`);
   return span;
 }
 
@@ -664,6 +689,11 @@ function renderLaneEditor() {
   $("btnAddLane").disabled = raceLanes.length >= 4;
 }
 $("btnAddLane").onclick = () => { if (raceLanes.length < 4) { raceLanes.push({ ...raceLanes[raceLanes.length - 1] }); renderLaneEditor(); } };
+$("btnCalibrate").onclick = async () => {   // races every speed profile on today's puzzle to measure which is fastest
+  if (!speedProfiles.length) return;
+  const r = await (await post("/api/race", { lanes: speedProfiles, max_guesses: 100 })).json();
+  if (r.status === "restarting") setStatus("running", "עוצר ומתחיל כיול…");
+};
 $("btnRace").onclick = async () => {
   const r = await (await post("/api/race", { lanes: raceLanes, max_guesses: parseInt($("numRaceMax").value, 10) || 100 })).json();
   if (r.status === "restarting") setStatus("running", "עוצר ומתחיל מירוץ…");
@@ -676,6 +706,7 @@ function startRace(ev) {
   $("raceMeta").textContent = `${ev.lanes.length} נתיבים · עד ${ev.max_guesses} ניחושים`;
   setStatus("running", "מירוץ"); closeSettings(); renderRace();
 }
+const ev_wait = (e) => Math.round(e.wait);
 function onRaceLane(i, e) {
   if (!R || !R.lanes[i]) return;
   const L = R.lanes[i];
@@ -685,6 +716,7 @@ function onRaceLane(i, e) {
     case "reasoning": L.rounds += 1; break;
     case "subagents": L.scoutCalls += e.scouts.length; break;
     case "supervisor": L.supCalls += 1; break;
+    case "throttled": L.throttledAt = Date.now(); L.wait = ev_wait(e); break;
     case "found": L.state = "found"; L.foundMs = Date.now() - L.t0; break;
     case "stopped": if (L.state === "running") L.state = "stopped"; L.note = e.reason; break;
     case "error": if (L.state === "running") L.state = "error"; L.note = e.message; break;
@@ -708,6 +740,8 @@ function renderRace() {
       `קריאות ${L.rounds + L.scoutCalls + L.supCalls} (סיירים ${L.scoutCalls}, פיקוח ${L.supCalls})`,
       `זמן ${fmtSec(L.foundMs ?? L.endMs ?? Date.now() - L.t0)}`]) stats.appendChild(h("span", "", t));
     if (L.note && L.state === "error") stats.appendChild(h("span", "", L.note));
+    if (L.throttledAt && Date.now() - L.throttledAt < 20000 && L.state === "running")
+      stats.appendChild(h("span", "badge", `האתר מגביל קצב, ממתין ${L.wait} שנ׳`));
     card.append(head, th, stats); box.appendChild(card);
   }
 }
@@ -834,10 +868,15 @@ function onSupervisor(ev) {
 
 /* ---------- events ---------- */
 function onEvent(ev) {
+  try { handleEvent(ev); } finally { tickClock(); }   // the clock follows every event at once, not on the next tick
+}
+function handleEvent(ev) {
   switch (ev.type) {
     case "reset": resetState(); break;
     case "start":
+      clock.t0 = ev.t; clock.end = null;
       S.run = ev; S.thresholds = ev.thresholds; S.effort = ev.effort; $("chipTest").hidden = !ev.test;
+      settings.speed = !!ev.speed; $("chkSpeed").checked = settings.speed; applySpeedLock();
       $("chipPuzzle").hidden = false; $("chipPuzzle").textContent = `חידה ${ev.puzzle ?? "?"}`;
       settings.model = ev.model; setSelect($("selModel"), ev.model);
       if (ev.supervisor) { settings.supervisor = ev.supervisor; setSelect($("selSup"), ev.supervisor); }
@@ -866,9 +905,22 @@ function onEvent(ev) {
     case "supervisor_lessons": {
       const it = h("div", "item sup"); it.appendChild(h("div", "head")).appendChild(h("b", "", "לקחי המפקח"));
       const ul = h("ul", "lessons"); for (const l of ev.lessons) ul.appendChild(h("li", "", l)); it.appendChild(ul); feedAdd(it); break; }
-    case "race_start": startRace(ev); break;
+    case "race_start": clock.t0 = ev.t; clock.end = null; startRace(ev); break;
     case "race": onRaceLane(ev.lane, ev.ev); break;
-    case "race_done": R.done = true; renderRace(); renderRaceSummary(ev.race); refreshState(); setStatus("solved", "המירוץ הסתיים"); break;
+    case "race_done": if (clock.end == null) clock.end = ev.t; R.done = true; renderRace(); renderRaceSummary(ev.race); refreshState(); setStatus("solved", "המירוץ הסתיים"); break;
+    case "speed": {
+      settings.model = ev.model; setSelect($("selModel"), ev.model);
+      const name = (e) => `${e.model} · מאמץ ${EFFORT_LABEL[e.effort] || e.effort} · ${e.subagents} סיירים על ${e.subagent_model}`;
+      const text = `נבחר אוטומטית פרופיל קבוע: ${name(ev)}. זמן פתרון משוער לכל פרופיל: ` +
+        ev.estimates.map((e) => `${name(e)}: ${e.seconds} שנ׳ (${e.samples ? e.samples + " מדידות" : "הערכה ראשונית"})${e.chosen ? " ← נבחר" : ""}`).join(" | ");
+      $("speedInfo").textContent = text + (ev.calibrated ? "" : " עדיין לא כויל: אלה הערכות ראשוניות, ולכן הבחירה עוד לא מבוססת על מדידות. כפתור 'כייל מהירות' ישפר את זה.");
+      applySpeedLock();
+      const it = h("div", "item sup"), head = h("div", "head");
+      head.append(h("b", "", "מקסימום מהירות"), h("span", "badge", shortModel(ev.model)));
+      it.append(head, h("p", "", text)); feedAdd(it); break; }
+    case "throttled":
+      $("statusText").textContent = `האתר מגביל קצב, ממתין ${Math.round(ev.wait)} שנ׳`;
+      break;
     case "experiment": {
       const it = h("div", "item sup"), head = h("div", "head");
       head.append(h("b", "", "ניסוי מאמץ"), h("span", "badge", `${EFFORT_LABEL[ev.chosen]} ← ${EFFORT_LABEL[ev.tried]}`));
@@ -884,6 +936,7 @@ function onEvent(ev) {
       renderHero(); renderChart(); renderRows(ev.resumed ? null : ev.word); break;
     case "rejected": S.rejected.push(ev.word); markChip(ev.word, 0, 0, true); break;
     case "found":
+      if (clock.end == null) clock.end = ev.t;
       clearWait(); S.solved = ev.secret; setStatus("found", "נמצאה המילה!");
       { const it = h("div", "item good"); it.append(h("div", "head", ""), h("p", "", `המילה הסודית היא "${ev.secret}". נמצאה אחרי ${ev.guesses} ניחושים.`));
         it.firstChild.appendChild(h("b", "", "נפתר")); feedAdd(it); } break;
@@ -896,13 +949,13 @@ function onEvent(ev) {
       const it = h("div", "item"); it.appendChild(Object.assign(h("div", "head"), {})).appendChild(h("b", "", "סיכום ולקחים"));
       if (ev.summary) it.appendChild(h("p", "", ev.summary));
       const ul = h("ul", "lessons"); for (const l of ev.lessons) ul.appendChild(h("li", "", l)); it.appendChild(ul); feedAdd(it); refreshState(); break; }
-    case "stopped": clearWait(); setStatus("stopped", "נעצר");
+    case "stopped": if (clock.end == null) clock.end = ev.t; clearWait(); setStatus("stopped", "נעצר");
       { const it = h("div", "item"); it.appendChild(h("div", "head")).appendChild(h("b", "", "נעצר"));
         it.appendChild(h("p", "", `${stopReason(ev.reason)}. המשחק נשמר. הרצה חוזרת מתחילה משחק חדש.`)); feedAdd(it); } break;
-    case "error": clearWait(); setStatus("error", "שגיאה");
+    case "error": if (clock.end == null && clock.t0 != null) clock.end = ev.t; clearWait(); setStatus("error", "שגיאה");
       { const it = h("div", "item err"); it.appendChild(h("div", "head")).appendChild(h("b", "", "שגיאה"));
         it.appendChild(h("p", "", ev.message)); feedAdd(it); } break;
-    case "finished": clearWait(); $("btnStop").hidden = true; refreshState(); break;
+    case "finished": if (clock.end == null) clock.end = ev.t; clearWait(); $("btnStop").hidden = true; refreshState(); break;
   }
 }
 const stopReason = (r) => ({ "stopped by user": "עצרת את ההרצה", "no new words proposed": "המודל לא הציע מילים חדשות כמה סבבים ברצף",
@@ -912,6 +965,7 @@ const stopReason = (r) => ({ "stopped by user": "עצרת את ההרצה", "no 
 function openSettings() { $("settings").hidden = false; }
 function closeSettings() { $("settings").hidden = true; }
 let modelOptions = [];
+let speedProfiles = [];
 const SCOUT_LABEL = { "field-scout": "סייר תחומים", "neighbour-scout": "סייר שכנים", "triangulator": "משלש" };
 const KNOWN_PROVIDERS = ["openai", "google", "ollama", "lmstudio", "openrouter", "groq", "mistral", "deepseek", "xai", "together", "custom"];
 const effortOk = (m) => {          // mirrors the server: only Claude (except Haiku) and OpenAI reasoning models have effort levels
@@ -940,7 +994,7 @@ function buildSettings(providers) {
   { const o = h("option", "", "אוטומטי: המפקח בוחר"); o.value = "auto"; $("selScoutModel").insertBefore(o, $("selScoutModel").firstChild); }
   setSelect($("selScoutModel"), settings.subagent_model); $("selScouts").value = String(settings.subagents);
   setSelect($("selModel"), settings.model); setSelect($("selSup"), settings.supervisor);
-  $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test; $("chkExp").checked = settings.experiments !== false;
+  $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test; $("chkExp").checked = settings.experiments !== false; $("chkSpeed").checked = !!settings.speed; applySpeedLock();
   const box = $("providers"); box.replaceChildren();
   for (const p of Object.values(providers || {})) {
     const ways = [];
@@ -971,6 +1025,16 @@ $("selScouts").onchange = (e) => { settings.subagents = e.target.value; };
 $("selScoutModel").onchange = (e) => { settings.subagent_model = e.target.value; };
 $("chkTest").onchange = (e) => { settings.test = e.target.checked; };
 $("chkExp").onchange = (e) => { settings.experiments = e.target.checked; };
+function applySpeedLock() {   // speed mode chooses the model, supervisor, scouts and experiments itself
+  const on = !!settings.speed;
+  for (const id of ["selModel", "txtModel", "selSup", "selScouts", "selScoutModel", "chkExp"]) $(id).disabled = on;
+  $("selModel").title = on ? "נעול במצב מקסימום מהירות: נבחר אוטומטית" : "אפשר להחליף דגם גם באמצע משחק";
+  const info = $("speedInfo");
+  info.hidden = !on;
+  if (on && !info.textContent) info.textContent = "המודל וההגדרות ייבחרו אוטומטית בתחילת המשחק, לפי זמני הפתרון שנמדדו.";
+  if (!on) syncSup();
+}
+$("chkSpeed").onchange = (e) => { settings.speed = e.target.checked; applySpeedLock(); };
 
 async function refreshState() {
   try {
@@ -985,7 +1049,7 @@ async function post(path, body) {
 
 async function runNow() {
   // No confirmation and no preconditions: if a game is in progress it is stopped and a new one starts.
-  settings = { model: settings.model, supervisor: settings.supervisor, subagents: settings.subagents, subagent_model: settings.subagent_model, test: settings.test, experiments: settings.experiments,
+  settings = { model: settings.model, supervisor: settings.supervisor, subagents: settings.subagents, subagent_model: settings.subagent_model, test: settings.test, experiments: settings.experiments, speed: settings.speed,
     backend: $("selBackend").value || settings.backend };
   const r = await (await post("/api/start", settings)).json();
   if (r.status === "restarting") setStatus("running", "עוצר ומתחיל מחדש…");
@@ -1014,7 +1078,7 @@ resetState();
   settings = { ...settings, ...full.defaults, ...(full.running ? full.live : {}) };
   const [opts, provs] = await Promise.all([fetch("/api/models").then((r) => r.json()).catch(() => []),
                                            fetch("/api/providers").then((r) => r.json()).catch(() => ({}))]);
-  modelOptions = opts; buildSettings(provs);
+  modelOptions = opts; speedProfiles = full.speed_profiles || []; buildSettings(provs);
   if (!full.running) openSettings();
   const es = new EventSource("/events");
   es.onopen = () => resetState();          // the server replays the whole current run on every (re)connect

@@ -1,1 +1,104 @@
-[]
+[
+ {
+  "date": "2026-10-04",
+  "puzzle": 1687,
+  "max_guesses": 100,
+  "lanes": [
+   {
+    "config": {
+     "model": "haiku",
+     "supervisor": "haiku",
+     "subagents": "3"
+    },
+    "solved": false,
+    "guesses": 30,
+    "rounds": 5,
+    "scout_calls": 12,
+    "supervisor_calls": 5,
+    "seconds": 192
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "sonnet",
+     "subagents": "0"
+    },
+    "solved": true,
+    "guesses": 66,
+    "rounds": 11,
+    "scout_calls": 0,
+    "supervisor_calls": 11,
+    "seconds": 108,
+    "first": true
+   }
+  ]
+ },
+ {
+  "date": "2026-10-04",
+  "puzzle": 1687,
+  "max_guesses": 100,
+  "lanes": [
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": true,
+    "guesses": 61,
+    "rounds": 12,
+    "scout_calls": 33,
+    "supervisor_calls": 0,
+    "seconds": 417
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "medium",
+     "subagent_model": "haiku"
+    },
+    "solved": true,
+    "guesses": 30,
+    "rounds": 5,
+    "scout_calls": 12,
+    "supervisor_calls": 0,
+    "seconds": 148
+   },
+   {
+    "config": {
+     "model": "opus",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": true,
+    "guesses": 50,
+    "rounds": 8,
+    "scout_calls": 21,
+    "supervisor_calls": 0,
+    "seconds": 258
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "high",
+     "subagent_model": "sonnet"
+    },
+    "solved": true,
+    "guesses": 28,
+    "rounds": 5,
+    "scout_calls": 12,
+    "supervisor_calls": 0,
+    "seconds": 118,
+    "first": true
+   }
+  ]
+ }
+]

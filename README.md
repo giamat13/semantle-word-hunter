@@ -95,6 +95,7 @@ python solver.py --backend api         # use the Anthropic API instead
 | `--model` | `sonnet` | `opus`, `sonnet`, `haiku`, `fable`, or any full model ID |
 | `--supervisor` | `haiku` | model that watches in the background and adjusts effort; `off` disables |
 | `--no-experiments` | off | turn off effort experiments (rounds that randomly run above the supervisor's effort) |
+| `--speed` | off | maximum speed: the model, supervisor, scouts and experiments are chosen automatically from measured times and locked |
 | `--test` / `--test-file` | off / `knowledge_test.json` | read from `--knowledge`, write only to the test file (wiped each test run) |
 | `--subagents` | `auto` | scouts per round: `auto` lets the supervisor decide (starting at 3), a number `0` to `3` is fixed for the whole game |
 | `--subagent-model` | `auto` | model the scouts run on: `auto` lets the supervisor pick (starting with Haiku), or any model ID or `provider:model`, fixed for the game |
@@ -148,6 +149,63 @@ counted, because the solver has already seen the answer.
 After a win, **Copy for sharing** puts a spoiler-free Wordle-style summary on the clipboard: puzzle number,
 guesses, rounds, the setup, and one coloured square per guess (white far, yellow warm, orange in the top 1000,
 green found). It never contains a guessed word.
+
+### Maximum speed
+
+`--speed`, or the **Maximum speed** switch at the top of the settings, aims for the least **wall-clock time** to the
+word. That is not the fewest guesses and not the strongest model: a stronger model or a higher effort thinks longer
+in every round, and a weak model sends many unrelated guesses and needs many rounds. Where the balance lies is
+**measured, not assumed**.
+
+Speed mode runs one of a few fixed *profiles*, each a whole setup: model, effort, number of scouts and the scouts'
+model. Everything is chosen automatically and locked: the page disables the controls and the header model switch,
+the supervisor is off (it would change the setup round by round, which would make it impossible to measure) and
+there are no effort experiments. The player is told that rounds, not guesses, cost time, so it uses wide batches
+where that pays and no filler words.
+
+The profile is chosen from real times. Every game and every race lane that ran a profile records its seconds (up to
+the moment the word was found, not counting the summary written afterwards). A run that never found the word counts
+as a long one. The starting estimates are rough and nothing in them assumes that more strength or more effort is
+faster; a measured run outweighs them quickly, and a profile with few runs gets the benefit of the doubt so that
+it is tried.
+
+To fill the table in one go, press **Calibrate speed** in the settings: it races all the profiles on today's puzzle
+at the same time and saves the times. After that, speed mode picks the fastest one. The page shows which profile
+was chosen and the expected seconds of each.
+
+### Timer
+
+A timer is always on the page: it counts while a game runs and stays on the time it took to find the word. For a
+race it measures the whole race. The terminal prints the time too. The statistics panel shows the median time per
+setup next to the median number of guesses.
+
+### When the site slows you down
+
+The site rate limits (HTTP 429, with an empty body) when it gets many requests quickly, for example from a race
+or several games at once. A refusal like that says nothing about the word, so it is never treated as a rejected
+word: the request waits and is retried (honouring `Retry-After` when the site sends it), requests from all the
+games in a process are spaced out, and one refusal makes every game wait. The page shows "the site is rate
+limiting, waiting N seconds" instead of looking stuck, and the terminal prints one line per burst. Only HTTP 400
+means a word is not in the vocabulary. If the site keeps refusing for five minutes, the game stops with a clear
+error and nothing is remembered as rejected. If a block lasts, stop what is running, wait a few minutes, and run
+again; running more things at once makes it last longer.
+
+### Running more than one at once
+
+Every launch of `python solver.py --ui` is its own game with its own page: if the port is busy it takes the next
+free one (8766, 8767, ...), so a second launch does not stop the first and both play together. Runs that share
+`knowledge.json` are safe: each one saves only its own game, merged into the file as it is at that moment under a
+lock, so one run never overwrites another (two simultaneous test runs share `knowledge_test.json`, which each of
+them wipes at the start, so test one at a time).
+
+In VS Code, **F5 while a debug session is running means "continue", not "start another"**, so it will not launch a
+second game. Start the next one with *Run Without Debugging* (Ctrl+F5) or the green play button in the Run and Debug
+panel. To make F5 itself start a new session even while one is running, add this to your user
+`keybindings.json` (it is a user setting, not part of the project):
+
+```json
+{ "key": "f5", "command": "workbench.action.debug.start", "when": "inDebugMode" }
+```
 
 ### Every run starts fresh
 
