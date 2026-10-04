@@ -293,7 +293,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
       <div class="field"><label for="selSup">מפקח ברקע</label><select id="selSup"></select></div>
       <div class="field"><label for="selScouts">סוכני משנה</label><select id="selScouts">
         <option value="auto">אוטומטי: המפקח מנהל</option><option value="3">3 סיירים קבועים</option><option value="2">2 סיירים קבועים</option><option value="1">סייר אחד קבוע</option><option value="0">בלי סיירים</option></select></div>
-      <div class="field"><label for="selScoutModel">דגם הסיירים</label><select id="selScoutModel"></select></div>
+      <div class="field"><label for="selScoutModel">דגם הסיירים (סוכני משנה)</label><select id="selScoutModel"></select></div>
       <div class="field"><label for="selBackend">מקור</label><select id="selBackend">
         <option value="auto">אוטומטי</option><option value="cli">מנוי / CLI, בלי מפתח</option><option value="api">מפתח API</option></select></div>
       <label class="check wide"><input type="checkbox" id="chkTest"> מצב בדיקה: קורא מ-knowledge.json, כותב רק ל-knowledge_test.json (מתאפס בכל בדיקה)</label>
@@ -393,7 +393,7 @@ const $ = (id) => document.getElementById(id);
 const EFFORT_LABEL = { auto: "אוטומטי", low: "נמוך", medium: "בינוני", high: "גבוה", xhigh: "גבוה מאוד", max: "מקסימלי" };
 
 let S;            // per-run state, reset on every run
-let settings = { model: "sonnet", supervisor: "haiku", backend: "auto", subagents: "auto", subagent_model: "haiku", test: false };
+let settings = { model: "sonnet", supervisor: "haiku", backend: "auto", subagents: "auto", subagent_model: "auto", test: false };
 let waitTimer = null;
 let sortBy = "score";
 
@@ -824,7 +824,9 @@ function onSupervisor(ev) {
   if (ev.has_effort !== false) head.append(h("span", "badge", ev.previous === "auto" ? `רמה התחלתית: ${EFFORT_LABEL[ev.effort]}`
     : changed ? `${EFFORT_LABEL[ev.previous]} ← ${EFFORT_LABEL[ev.effort]}` : `נשאר ${EFFORT_LABEL[ev.effort]}`));
   if (ev.subagents != null) head.appendChild(h("span", "badge", (ev.subagents !== ev.previous_subagents && ev.previous_subagents != null
-    ? `סיירים ${ev.previous_subagents} ← ${ev.subagents}` : `סיירים ${ev.subagents}`) + (ev.subagents ? (ev.scout_tier === "strong" ? " · חזקים" : " · זולים") : "")));
+    ? `סיירים ${ev.previous_subagents} ← ${ev.subagents}` : `סיירים ${ev.subagents}`) + (ev.subagents && ev.scout_model ? ` · ${shortModel(ev.scout_model)}` : "")));
+  if (ev.subagents && ev.scout_model && ev.previous_model && ev.scout_model !== ev.previous_model)
+    head.appendChild(h("span", "badge", `דגם הסיירים ${shortModel(ev.previous_model)} ← ${shortModel(ev.scout_model)}`));
   if (ev.stalled) head.appendChild(h("span", "", `${ev.stalled} סבבים בלי שיפור`));
   it.append(head, h("p", "", ev.reason)); feedAdd(it);
 }
@@ -929,6 +931,7 @@ function setSelect(sel, value) {      // a model typed by hand, or one the list 
 }
 function buildSettings(providers) {
   fillSelect($("selModel"), false, true); fillSelect($("selSup"), true, false); fillSelect($("selScoutModel"), false, false);
+  { const o = h("option", "", "אוטומטי: המפקח בוחר"); o.value = "auto"; $("selScoutModel").insertBefore(o, $("selScoutModel").firstChild); }
   setSelect($("selScoutModel"), settings.subagent_model); $("selScouts").value = String(settings.subagents);
   setSelect($("selModel"), settings.model); setSelect($("selSup"), settings.supervisor);
   $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test;

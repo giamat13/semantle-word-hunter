@@ -96,7 +96,7 @@ python solver.py --backend api         # use the Anthropic API instead
 | `--supervisor` | `haiku` | model that watches in the background and adjusts effort; `off` disables |
 | `--test` / `--test-file` | off / `knowledge_test.json` | read from `--knowledge`, write only to the test file (wiped each test run) |
 | `--subagents` | `auto` | scouts per round: `auto` lets the supervisor decide (starting at 3), a number `0` to `3` is fixed for the whole game |
-| `--subagent-model` | `haiku` | model the scouts run on |
+| `--subagent-model` | `auto` | model the scouts run on: `auto` lets the supervisor pick (starting with Haiku), or any model ID or `provider:model`, fixed for the game |
 | `--ui` / `--autostart` | off | serve the web UI / start solving immediately |
 | `--port` | `8765` | first port to try for the UI |
 | `--max-guesses` | `0` (none) | stop after this many accepted guesses |
@@ -167,8 +167,9 @@ does this. The web UI also has a test-mode checkbox in the settings.
 
 ### Sub-agents
 
-Each round, up to three scouts explore in parallel on a cheaper model (`--subagent-model`, default Haiku)
-and hand the solver their proposals, which its system prompt tells it to use:
+Each round, up to three scouts (sub-agents) explore in parallel and hand the solver their proposals, which its
+system prompt tells it to use. The scouts run on a model of their own: by default the supervisor picks it each
+round from the available models (Haiku to start), or you fix it with `--subagent-model`:
 
 - **field-scout**: fields that have not been probed yet,
 - **neighbour-scout**: close relatives of the best words,
@@ -188,10 +189,12 @@ little time.
   model's effort when the search stalls, or lower it when progress is easy. A verdict applies from the
   next round, so it never adds latency. It has no effect when the solver itself is Haiku, which has no
   effort setting.
-- The supervisor also manages the **scout budget** each round: how many scouts (0 to 3) and which tier, `cheap`
-  (the scout model) or `strong` (the same model as the player). It saves when the search is moving and adds
-  scouts, then the strong tier, when it stalls. With a model that has no effort levels (Haiku, most local
-  models) only the scout budget is adjusted.
+- The supervisor also manages the **scout budget** each round: how many scouts (0 to 3) and **which model they
+  run on**, picked from a list it is given: the default scout model, the player's own model, the Claude aliases
+  and any local model that is running. It saves when the search is moving, and adds scouts, then a stronger
+  model, when it stalls. A number of scouts or a model you set yourself is fixed and the supervisor cannot
+  change it. With a player model that has no effort levels (Haiku, most local models) only the scout budget is
+  adjusted.
 - The supervisor **learns from the record**. Every round is saved in `knowledge.json` (effort used, whether the
   best score or rank improved) together with each supervisor decision and what the next round showed. Its
   prompt includes how often each effort level led to progress, how its earlier raises turned out, and lessons

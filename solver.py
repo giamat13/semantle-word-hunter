@@ -13,6 +13,7 @@ Run it in the terminal (python solver.py) or with a live web UI (python solver.p
 """
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -601,20 +602,21 @@ each round you set the player's budget:
   Some models have no effort levels; then your effort choice is ignored.
 - subagents: 0 to 3 scouts that explore in parallel before the player does (field-scout, neighbour-scout,
   triangulator). Every scout is one extra model call per round.
-- scout_tier: "cheap" (a small, fast model) or "strong" (the same model as the player: smarter, but it costs
-  much more).
+- scout_model: which model the scouts run on, picked from the list the user message gives you. A small model is
+  fast and cheap; a stronger one proposes better words but is slower and costs much more per scout; a local model
+  costs nothing but may be weak.
 Spend where it helps and save where it does not.
 
 Decide from the progress summary you are given:
 - Early exploration with broad probes needs little thinking and little help: effort low or medium, and one or
-  two cheap scouts, or none.
+  two scouts on a small model, or none.
 - Raise effort when the player struggles: no new best score or rank for 3 or more rounds, guesses
   circling the same cluster, rank stuck at a low number, or similarity plateauing below the 1000th-nearest
   reference score. Raise one level for a mild stall, two for a long one. Use max only after 6+ rounds
   with no improvement.
 - Scouts are the stronger tool against a plateau, because a stall is usually a strategy problem: the triangulator
   jumps to the outcome, cause or opposite of the top words. After 2 stalled rounds use all 3 scouts. After 4
-  stalled rounds with 3 cheap scouts, try the strong tier.
+  stalled rounds with 3 scouts on a small model, try a stronger model for them.
 - When the player improves round after round, save: lower effort if it is high, and use fewer scouts or none.
 - Never change anything without a reason you can state in one sentence.
 
@@ -640,11 +642,37 @@ SUPERVISOR_SCHEMA = {
     "type": "object",
     "properties": {"effort": {"type": "string", "enum": EFFORTS},
                    "subagents": {"type": "integer", "enum": [0, 1, 2, 3]},
-                   "scout_tier": {"type": "string", "enum": ["cheap", "strong"]},
+                   "scout_model": {"type": "string"},  # an enum of the models on offer is added per call
                    "reason": {"type": "string"}},
-    "required": ["effort", "subagents", "scout_tier", "reason"],
+    "required": ["effort", "subagents", "scout_model", "reason"],
     "additionalProperties": False,
 }
+
+MODEL_NOTES = {"haiku": "smallest and fastest, cheapest", "sonnet": "balanced speed, cost and skill",
+               "opus": "stronger, slower, costly", "fable": "most capable, slowest, most expensive"}
+
+
+def supervisor_schema(models: list[str]) -> dict:
+    schema = copy.deepcopy(SUPERVISOR_SCHEMA)
+    schema["properties"]["scout_model"]["enum"] = models
+    return schema
+
+
+def scout_choices(args, local: list[dict]) -> list[tuple[str, str]]:
+    """The models the supervisor may pick for the scouts, each with a plain note. The first is the default."""
+    out: dict[str, str] = {}
+
+    def add(model: str, note: str) -> None:
+        if model and model != "auto" and model not in out:
+            out[model] = note
+
+    add("haiku" if args.subagent_model == "auto" else args.subagent_model, "the default scout model")
+    add(args.model, "the player's own model")
+    for alias in MODELS:
+        add(alias, MODEL_NOTES[alias])
+    for m in local:
+        add(m["id"], "a local model on this computer: free to run, usually weaker")
+    return list(out.items())
 
 
 def decision_text(log: list[dict]) -> str:
@@ -658,8 +686,11 @@ def decision_text(log: list[dict]) -> str:
         scouts = ""
         if d.get("subagents") is not None:
             was = d.get("previous_subagents")
+            on = d.get("scout_model") or d.get("scout_tier") or "default"
             scouts = (f", scouts {was} -> {d['subagents']}" if was is not None and was != d["subagents"]
-                      else f", scouts {d['subagents']}") + f" ({d.get('scout_tier', 'cheap')})"
+                      else f", scouts {d['subagents']}") + f" on {on}"
+            if d.get("previous_model") and d.get("scout_model") and d["previous_model"] != d["scout_model"]:
+                scouts += f" (was {d['previous_model']})"
         lines.append(f"- after round {d['after_round']}: {change}{scouts} (stalled {d.get('stalled') or 0} rounds). "
                      f"Next round: {result}.")
     return "\n".join(lines)
@@ -678,7 +709,7 @@ def supervisor_digest(know: dict, game: dict) -> str:
                 by[r["effort"]][1] += 1 if r["improved"] else 0
             b = r.get("budget")
             if b:
-                key = f"{b['subagents']} scouts ({b['tier']})" if b["subagents"] else "no scouts"
+                key = f"{b['subagents']} scouts on {b.get('model') or b.get('tier')}" if b["subagents"] else "no scouts"
                 by_scouts[key][0] += 1
                 by_scouts[key][1] += 1 if r["improved"] else 0
         decisions += [d for d in g.get("supervisor_log", []) if d.get("outcome")]
@@ -711,7 +742,7 @@ def reflect_supervisor(client, args, game: dict, know: dict) -> list[str]:
     """After a game, the supervisor reviews its own decisions and writes lessons about its mistakes."""
     def budget(r):
         b = r.get("budget")
-        return f", scouts {b['subagents']} ({b['tier']})" if b else ""
+        return f", scouts {b['subagents']} on {b.get('model') or b.get('tier')}" if b else ""
     rounds = "\n".join(f"round {r['n']}: {'effort ' + r['effort'] if r.get('effort') else 'no effort levels'}{budget(r)}, "
                        f"best similarity {r['best_after']:.1f}, "
                        f"{'improved' if r['improved'] else 'no gain'}" for r in game.get("rounds", []))
@@ -747,15 +778,26 @@ def stall_rounds(best_per_round: list[float]) -> int:
 class Supervisor:
     """Reviews the game in a background thread while the main model thinks. A verdict is applied at the
     start of the next round, so the review never adds latency. A verdict is the budget for that round:
-    {"effort", "subagents", "tier"}."""
+    {"effort", "subagents", "model"} (the model the scouts run on)."""
 
     def __init__(self, args, client, emit, know: dict, game: dict):
         self.args, self.client, self.emit = args, client, emit
         self.know, self.game = know, game
         self.digest = supervisor_digest(know, game)  # fixed for the game; this game's decisions are added per review
         self.model = args.supervisor
+        try:  # local models are listed once per game; this is quick and empty when no local server runs
+            self.local = providers.local_models() if args.subagent_model == "auto" else []
+        except Exception:
+            self.local = []
         self.thread: threading.Thread | None = None
         self.verdict: dict | None = None
+
+    def _models_text(self, budget: dict) -> str:
+        fixed = [what for what, is_fixed in (("the number of scouts", self.args.subagents != "auto"),
+                                             ("the scout model", self.args.subagent_model != "auto")) if is_fixed]
+        lines = "\n".join(f"- {m}: {note}" for m, note in scout_choices(self.args, self.local))
+        return ("Models you may pick for the scouts:\n" + lines + "\n"
+                + (f"Fixed by the user, you cannot change: {' and '.join(fixed)}.\n" if fixed else ""))
 
     def busy(self) -> bool:
         return self.thread is not None and self.thread.is_alive()
@@ -769,27 +811,31 @@ class Supervisor:
         """One supervisor call; falls back to a simple rule when it fails. Returns the verdict plus its reason."""
         sup_args = argparse.Namespace(**vars(self.args))
         sup_args.model = self.model
+        names = [m for m, _ in scout_choices(self.args, self.local)]
         try:
-            data = call_model(self.client, sup_args, SUPERVISOR_SYSTEM, prompt, SUPERVISOR_SCHEMA, "low")
-            new = {"effort": data["effort"], "subagents": data["subagents"], "tier": data["scout_tier"],
+            data = call_model(self.client, sup_args, SUPERVISOR_SYSTEM, prompt, supervisor_schema(names), "low")
+            new = {"effort": data["effort"], "subagents": data["subagents"],
+                   "model": data["scout_model"] if data["scout_model"] in names else budget["model"],
                    "reason": data["reason"]}
         except Exception as e:  # a failed review never stops the game
             new = {"effort": EFFORTS[min(EFFORTS.index(effort) + 1, len(EFFORTS) - 1)] if stalled >= 3 else effort,
-                   "subagents": 3 if stalled >= 2 else budget["subagents"], "tier": budget["tier"],
+                   "subagents": 3 if stalled >= 2 else budget["subagents"], "model": budget["model"],
                    "reason": f"supervisor call failed ({type(e).__name__}); rule: more scouts after 2 stalled rounds, "
                              "one effort level up after 3"}
         if not effort_ok(self.args.model):
             new["effort"] = effort  # the player's model has no effort levels, so only the scouts can change
         if self.args.subagents != "auto":
-            new["subagents"], new["tier"] = budget["subagents"], budget["tier"]  # the user fixed the scouts
+            new["subagents"] = budget["subagents"]  # the user fixed the number of scouts
+        if self.args.subagent_model != "auto":
+            new["model"] = budget["model"]  # ...or their model
         return new
 
     def _announce(self, new: dict, effort: str, budget: dict, stalled: int, previous_effort: str) -> None:
-        self.verdict = {"effort": new["effort"], "subagents": new["subagents"], "tier": new["tier"]}
+        self.verdict = {"effort": new["effort"], "subagents": new["subagents"], "model": new["model"]}
         self.emit({"type": "supervisor", "effort": new["effort"], "previous": previous_effort, "reason": new["reason"],
                    "has_effort": effort_ok(self.args.model),
                    "stalled": stalled, "subagents": new["subagents"], "previous_subagents": budget["subagents"],
-                   "scout_tier": new["tier"], "previous_tier": budget["tier"]})
+                   "scout_model": new["model"], "previous_model": budget["model"]})
 
     def choose_start(self, know: dict, thresholds: dict | None, budget: dict) -> dict:
         """Picks the first round's budget. Blocks for one short call."""
@@ -797,9 +843,7 @@ class Supervisor:
         prompt = (
             f"{self.digest}A new game is starting: no guesses yet.\n"
             f"Main model: {self.args.model} (effort levels: {'yes' if effort_ok(self.args.model) else 'no'}).\n"
-            f"Scout model for the cheap tier: {self.args.subagent_model}. Scouts: "
-            + ("you manage them, starting at 3.\n" if self.args.subagents == "auto"
-               else f"fixed by the user at {budget['subagents']}, you cannot change them.\n")
+            f"Scouts start as {budget['subagents']} on {budget['model']}.\n{self._models_text(budget)}"
             + (f"Past solved games, guesses needed: {', '.join(map(str, past))}.\n" if past
                else "No past games yet.\n")
             + (f"Reference scores today: nearest {thresholds['nearest']}, 10th {thresholds['tenth']}, "
@@ -810,7 +854,7 @@ class Supervisor:
         if not effort_ok(self.args.model):
             new["effort"] = "medium"
         self._announce(new, "medium", budget, 0, "auto")
-        return {"effort": new["effort"], "subagents": new["subagents"], "tier": new["tier"]}
+        return {"effort": new["effort"], "subagents": new["subagents"], "model": new["model"]}
 
     def review(self, history: list[dict], best_per_round: list[float], effort: str,
                thresholds: dict | None, budget: dict) -> None:
@@ -833,8 +877,7 @@ class Supervisor:
             + (f"Your decisions so far in this game:\n{mine}\n\n" if mine else "")
             + f"Rounds played: {len(best_per_round)}. Guesses: {len(history)}. Current effort: {effort}"
             f" (the player's model {'has' if effort_ok(self.args.model) else 'has no'} effort levels). "
-            f"Current scouts: {budget['subagents']} ({budget['tier']})"
-            + (".\n" if self.args.subagents == "auto" else ", fixed by the user (you cannot change them).\n")
+            f"Current scouts: {budget['subagents']} on {budget['model']}.\n{self._models_text(budget)}"
             + f"Best similarity after each round: {', '.join(f'{b:.1f}' for b in best_per_round)}.\n"
             f"Rounds since the best similarity last improved: {stalled}.\n"
             f"Best rank so far: {best_rank if best_rank is not None else 'none yet'}. "
@@ -901,7 +944,8 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
             sup_log.append({"after_round": len(rounds), "previous": ev["previous"], "effort": ev["effort"],
                             "reason": ev["reason"], "stalled": ev.get("stalled"), "has_effort": ev.get("has_effort", True),
                             "subagents": ev.get("subagents"), "previous_subagents": ev.get("previous_subagents"),
-                            "scout_tier": ev.get("scout_tier"), "outcome": None})
+                            "scout_model": ev.get("scout_model"), "previous_model": ev.get("previous_model"),
+                            "outcome": None})
         raw_emit(ev)
 
     history = game["guesses"]
@@ -923,7 +967,8 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     best_per_round: list[float] = [r["best_after"] for r in rounds]
     supervisor: Supervisor | None = None
     # A number of scouts chosen by the user is fixed; with "auto" the supervisor manages it, starting at 3.
-    budget = {"subagents": 3 if args.subagents == "auto" else int(args.subagents), "tier": "cheap"}
+    budget = {"subagents": 3 if args.subagents == "auto" else int(args.subagents),
+              "model": "haiku" if args.subagent_model == "auto" else args.subagent_model}
     live = live if live is not None else {}
     try:
         while len(history) < limit and stalls < STALL_LIMIT and not stop.is_set():
@@ -936,7 +981,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                       "previous": args.supervisor})
                 args.supervisor = live["supervisor"]
                 supervisor = None
-            # The supervisor sets the budget: effort (when the model has effort levels), how many scouts, which tier.
+            # The supervisor sets the budget: effort (when the model has effort levels), how many scouts, and their model.
             if args.supervisor == "off":
                 supervisor = None
             elif supervisor is None:
@@ -946,7 +991,9 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                     v = supervisor.choose_start(view, thresholds, budget)
                     effort = v["effort"] if effort_ok(args.model) else "medium"
                     if args.subagents == "auto":
-                        budget.update(subagents=v["subagents"], tier=v["tier"])
+                        budget["subagents"] = v["subagents"]
+                    if args.subagent_model == "auto":
+                        budget["model"] = v["model"]
                 else:
                     effort = "medium"
             if supervisor:
@@ -955,10 +1002,12 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                     if effort_ok(args.model):
                         effort = v["effort"]
                     if args.subagents == "auto":
-                        budget.update(subagents=v["subagents"], tier=v["tier"])
+                        budget["subagents"] = v["subagents"]
+                    if args.subagent_model == "auto":
+                        budget["model"] = v["model"]
                 if history:
                     supervisor.review(history, best_per_round, effort, thresholds, budget)
-            scout_model = args.model if budget["tier"] == "strong" else args.subagent_model
+            scout_model = budget["model"]
             levels = effort_ok(args.model)  # models without effort levels (Haiku, most local models) show none
             shown_effort = effort if levels else None
             emit({"type": "waiting", "effort": shown_effort, "model": args.model, "budget": dict(budget)})
@@ -1009,8 +1058,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                                "best_after": best_after, "rank_after": rank_after,
                                "size": len(accepted), "asked": len(data["guesses"]),
                                "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens"),
-                               "budget": {"subagents": budget["subagents"], "tier": budget["tier"],
-                                          "model": scout_model},
+                               "budget": {"subagents": budget["subagents"], "model": scout_model},
                                "scouts": scout_use})
                 for d in sup_log:  # the first decision at this effort that has not been judged yet gets its outcome
                     if d["outcome"] is None and d["effort"] == effort and d["after_round"] < rounds[-1]["n"]:
@@ -1085,7 +1133,7 @@ def make_cli_emit(verbose: bool):
                       if ev.get("has_effort", True) else "no effort levels")
             scouts = ""
             if ev.get("subagents") is not None:
-                scouts = f", scouts {ev['previous_subagents']} -> {ev['subagents']} ({ev['scout_tier']})"
+                scouts = f", scouts {ev['previous_subagents']} -> {ev['subagents']} on {ev['scout_model']}"
             print(f"  [supervisor] {change}{scouts}: {ev['reason']}")
         elif t == "guess" and not ev.get("resumed"):
             rank = ev["distance"]
@@ -1124,8 +1172,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="scouts that explore in parallel each round and feed the solver proposals "
                         "(field-scout, neighbour-scout, triangulator). A number is fixed for the whole game "
                         "(0 = none). auto (default): the supervisor decides each round, starting at 3")
-    p.add_argument("--subagent-model", default="haiku",
-                   help="model the scouts run on (alias, model ID or provider:model; default haiku)")
+    p.add_argument("--subagent-model", default="auto",
+                   help="model the scouts run on (alias, model ID or provider:model). A model is fixed for the whole "
+                        "game. auto (default): the supervisor picks one each round from the available models, "
+                        "starting with haiku")
     p.add_argument("--backend", default="auto", choices=["auto", "cli", "api"],
                    help="how to reach each provider. cli: the provider's own CLI signed in with your "
                         "subscription (Claude Code, Codex, Gemini CLI), no key. api: an API key. "

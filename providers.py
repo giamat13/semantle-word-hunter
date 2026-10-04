@@ -236,6 +236,15 @@ def _list_one(provider: str, cfg: dict) -> list[dict]:
              "group": cfg["label"]} for i in ids if i]
 
 
+def local_models(limit: int = 4) -> list[dict]:
+    """Models on local servers (Ollama, LM Studio) that are running right now; empty when none is."""
+    out: list[dict] = []
+    for name, cfg in PROVIDERS.items():
+        if cfg.get("local") and _local_up(cfg):
+            out += _list_one(name, cfg)[:limit]
+    return out
+
+
 def list_provider_models() -> list[dict]:
     """Models from every provider that is reachable: has a key, or is a local server that is running.
     A CLI-only provider (no key) gets one 'CLI default' entry, since a CLI cannot list models."""
