@@ -1506,8 +1506,35 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def save_key(slot_id: str, value: str, persist: bool) -> None:
+    """A key entered in the page: used at once, remembered in .env if asked, and the model lists are refreshed."""
+    global _models_cache
+    providers.save_key(slot_id, value, persist)
+    _models_cache = (0.0, [])
+
+
+def load_env_file(path: Path | None = None) -> list[str]:
+    """Reads KEY=VALUE lines from a .env file next to this program, for API keys that should not be typed into
+    every terminal or committed. A variable already set in the real environment wins. Returns the names it set."""
+    path = path or Path(__file__).with_name(".env")
+    if not path.exists():
+        return []
+    names = []
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip().removeprefix("export ").strip(), value.strip().strip('"').strip("'")
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+            names.append(key)
+    return names
+
+
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # Hebrew output on Windows consoles (cp1252 by default)
+    load_env_file()
     parser = build_parser()
     args = parser.parse_args()
     if args.speed:
@@ -1518,6 +1545,7 @@ def main() -> int:
         from ui_server import serve
         return serve(args, {"play": play, "emit": cli_emit, "model_options": model_options,
                             "provider_status": providers.provider_status, "speed_profiles": speed_lanes,
+                            "key_status": providers.key_status, "save_key": save_key, "check_key": providers.check_key,
                             "load_knowledge": lambda: knowledge_summary(load_knowledge(args.knowledge),
                                                                        load_races(args.races_file)),
                             "save_race": lambda race: append_race(args.races_file, race)})

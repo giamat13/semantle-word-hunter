@@ -70,6 +70,15 @@ No prefix means Claude. Like Claude, every cloud provider can be reached two way
 | Ollama, LM Studio | none (local server; `OLLAMA_HOST` to change the address) | none |
 | Anything else OpenAI-compatible | `OPENAI_COMPAT_BASE_URL` (+ `OPENAI_COMPAT_API_KEY`), provider `custom` | none |
 
+**Where to put an API key.** Easiest: in the web page. Open the settings, expand **API keys**, paste the key next
+to the provider and press Save. The key is used at once, checked against the provider (a wrong key is reported),
+and the model lists refresh. It is never shown again: the page only says that it is set, with its last four
+characters. By default it is also kept in a `.env` file next to `solver.py`, so it survives a restart; untick the
+box to keep it for this session only. `.env` is ignored by git, so the key is never committed, and the server
+only accepts these requests from its own page. You can also fill in `.env` by hand (copy `.env.example`), or set
+one for a single terminal: `$env:OPENAI_API_KEY = "sk-..."`. A variable already set in your environment wins over
+`.env`. Never put a key in `.vscode/launch.json` or anywhere else that is tracked.
+
 `--backend auto` (default) uses the provider's CLI when it is installed and falls back to the key;
 `--backend cli` or `--backend api` forces one. Models are listed from each provider's own `/models`
 endpoint (and Claude's Models API), so a new model appears without any code change. Type any ID that is
@@ -118,7 +127,10 @@ The page shows, live: the closest word so far on a thermometer scaled with today
 the search phase (explore, locate, converge), the trail of every guess as a chart and a sortable table,
 Claude's reasoning round by round with the effort level used, supervisor decisions, and what was learned
 in earlier games. You can pick the model and supervisor, start and stop runs, and switch
-light/dark (`?theme=dark` forces a theme for one tab).
+light/dark (`?theme=dark` forces a theme for one tab). Every model picker (header, supervisor, scout
+model, race lanes) has a search box: type part of a name or provider (`groq 70b`), arrows and Enter pick,
+and any `provider:model` you type that is not in the list can be used as is. Models that cannot chat
+(embeddings, speech, images) are hidden. (`?theme=dark` forces a theme for one tab).
 The server is stdlib-only, listens on 127.0.0.1 and rejects POSTs from other origins.
 
 ### Daily run from VS Code

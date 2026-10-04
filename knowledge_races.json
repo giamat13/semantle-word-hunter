@@ -100,5 +100,52 @@
     "first": true
    }
   ]
+ },
+ {
+  "date": "2026-10-04",
+  "puzzle": 1687,
+  "max_guesses": 300,
+  "lanes": [
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "haiku",
+     "subagents": "auto"
+    },
+    "solved": true,
+    "guesses": 43,
+    "rounds": 6,
+    "scout_calls": 11,
+    "supervisor_calls": 5,
+    "seconds": 149,
+    "first": true
+   },
+   {
+    "config": {
+     "model": "claude-sonnet-4-6",
+     "supervisor": "haiku",
+     "subagents": "auto"
+    },
+    "solved": true,
+    "guesses": 69,
+    "rounds": 11,
+    "scout_calls": 25,
+    "supervisor_calls": 11,
+    "seconds": 295
+   },
+   {
+    "config": {
+     "model": "haiku",
+     "supervisor": "haiku",
+     "subagents": "auto"
+    },
+    "solved": false,
+    "guesses": 83,
+    "rounds": 13,
+    "scout_calls": 31,
+    "supervisor_calls": 13,
+    "seconds": 530
+   }
+  ]
  }
 ]

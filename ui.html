@@ -253,6 +253,28 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
 .rtable th { color: var(--ink-3); font-size: 12px; font-weight: 600; }
 .badge.win { background: var(--accent); color: var(--accent-ink); }
 .check.wide { grid-column: 1 / -1; }
+/* searchable model picker: it wraps a <select>, which stays as the data holder (value, change, disabled) */
+.picker { position: relative; display: inline-block; }
+.pickbtn { cursor: pointer; text-align: start; min-width: 150px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
+.pickbtn::after { content: " \25BE"; color: var(--ink-3); }
+.pickbtn:disabled { opacity: .55; cursor: not-allowed; }
+.pickpop { position: absolute; z-index: 40; top: calc(100% + 6px); inset-inline-start: 0; width: min(380px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 8px; }
+.pickpop input { width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; }
+.picklist { max-height: 300px; overflow: auto; margin-top: 6px; }
+.pickgroup { position: sticky; top: 0; background: var(--surface); font-size: 12px; font-weight: 600; color: var(--ink-3); padding: 6px 8px 2px; }
+.pickitem { padding: 6px 8px; border-radius: 8px; cursor: pointer; direction: ltr; text-align: left; overflow-wrap: anywhere; }
+.pickitem.on, .pickitem:hover { background: var(--accent-soft); }
+.pickfoot { font-size: 12px; color: var(--ink-3); padding: 6px 8px 0; }
+.fields .picker { display: block; }
+.fields .pickbtn, .lane-edit .pickbtn { width: 100%; max-width: none; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; font-size: 14px; }
+.lane-edit .picker { flex: 1 1 170px; }
+.keys summary { cursor: pointer; padding-block: 4px; }
+.keyrow { display: grid; grid-template-columns: minmax(150px, 1.2fr) minmax(120px, 2fr) auto auto; gap: 8px; align-items: center; margin-top: 8px; }
+.keyrow input { background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; min-width: 0; direction: ltr; }
+.keyrow .state { grid-column: 1 / -1; font-size: 13px; color: var(--ink-3); }
+.keyrow .state.ok { color: var(--good); }
+.keyrow .state.bad { color: var(--bad); }
+@media (max-width: 640px) { .keyrow { grid-template-columns: 1fr 1fr; } .keyrow label { grid-column: 1 / -1; } }
 .item.scouts { background: transparent; }
 .scout { display: grid; gap: 4px; }
 .scout .role { font-size: 12px; font-weight: 600; color: var(--ink-2); }
@@ -312,6 +334,11 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
           <label for="numRaceMax">מגבלת ניחושים</label><input type="number" id="numRaceMax" value="100" min="10" max="300" style="width:90px">
           <button class="btn primary" id="btnRace" type="button">התחל מירוץ</button></div>
         <div class="hint">כל נתיב משחק את אותה חידה בו-זמנית, במצב בדיקה: קורא זיכרון ולא כותב ל-knowledge.json. התוצאות נשמרות ב-knowledge_races.json. כל נתיב צורך מכסה משלו.</div></div>
+      <details class="field wide keys" id="keysDetails"><summary class="lbl">מפתחות API: OpenAI, Google, Claude ועוד</summary>
+        <div id="keysBox"></div>
+        <label class="check"><input type="checkbox" id="chkKeepKeys" checked> שמור בקובץ .env במחשב הזה (נשאר אחרי הפעלה מחדש; הקובץ לא נכנס לגיט)</label>
+        <div class="hint">המפתח נשלח רק לשרת המקומי שלך, ואינו מוצג שוב: רואים רק אם הוא מוגדר ואת ארבעת התווים האחרונים. אחרי שמירה הוא נבדק מול הספק.</div>
+      </details>
       <div class="field wide"><span class="lbl">חיבורים</span><div class="provs" id="providers"></div>
         <div class="hint">לכל ספק שתי דרכים: מפתח API, או ה-CLI הרשמי שלו כשאתה מחובר עם המנוי (בלי מפתח). שרתים מקומיים לא צריכים כלום. דגם מוקלד ידנית כ-ספק:דגם.</div></div>
     </div>
@@ -672,6 +699,44 @@ function labelNode(c) {      // "sonnet · 3 סיירים · עם מפקח", wit
   return span;
 }
 
+/* ---------- API keys, entered in the page ---------- */
+function renderKeys(keys) {
+  const box = $("keysBox"); box.replaceChildren();
+  for (const k of keys) {
+    const row = h("div", "keyrow"), label = h("label", "", k.label);
+    const input = document.createElement("input");
+    input.type = k.secret ? "password" : "text"; input.autocomplete = "off"; input.spellcheck = false;
+    input.placeholder = k.set ? (k.secret ? `מוגדר ····${k.hint}` : k.hint) : (k.secret ? "הדבק מפתח" : "https://...");
+    input.setAttribute("aria-label", k.label);
+    const state = h("div", "state", k.set ? "מוגדר" : "לא מוגדר");
+    const save = h("button", "btn", "שמור"); save.type = "button";
+    const clear = h("button", "btn", "מחק"); clear.type = "button"; clear.disabled = !k.set;
+    const send = async (value) => {
+      save.disabled = clear.disabled = true; state.className = "state"; state.textContent = value ? "בודק…" : "מוחק…";
+      try {
+        const r = await post("/api/keys", { id: k.id, value, persist: $("chkKeepKeys").checked });
+        const d = await r.json();
+        if (!r.ok) { state.className = "state bad"; state.textContent = d.error || "שגיאה"; save.disabled = false; clear.disabled = !k.set; return; }
+        const chk = d.check || {};
+        renderKeys(d.keys);   // the row is rebuilt from the server's view, which never contains the key
+        const again = [...$("keysBox").querySelectorAll(".keyrow")][keys.indexOf(k)];
+        const st = again && again.querySelector(".state");
+        if (st && value) { st.className = "state " + (chk.ok ? "ok" : "bad"); st.textContent = chk.ok ? "נשמר והמפתח תקין" : `נשמר, אבל: ${chk.message}`; }
+        await refreshConnections();
+      } catch (e) { state.className = "state bad"; state.textContent = "לא הצלחתי לשמור"; save.disabled = false; }
+    };
+    save.onclick = () => { if (input.value.trim()) send(input.value.trim()); };
+    input.onkeydown = (e) => { if (e.key === "Enter" && input.value.trim()) send(input.value.trim()); };
+    clear.onclick = () => send("");
+    row.append(label, input, save, clear, state); box.appendChild(row);
+  }
+}
+async function refreshConnections() {      // a new key changes which models and providers are available
+  const [opts, provs] = await Promise.all([fetch("/api/models").then((r) => r.json()).catch(() => modelOptions),
+                                           fetch("/api/providers").then((r) => r.json()).catch(() => ({}))]);
+  modelOptions = opts; buildSettings(provs);
+}
+
 function renderLaneEditor() {
   const box = $("lanes"); box.replaceChildren();
   raceLanes.forEach((ln, i) => {
@@ -685,6 +750,7 @@ function renderLaneEditor() {
     const rm = h("button", "btn", "הסר"); rm.type = "button"; rm.disabled = raceLanes.length <= 2;
     rm.onclick = () => { raceLanes.splice(i, 1); renderLaneEditor(); };
     row.append(h("b", "", `נתיב ${i + 1}`), m, sc, su, rm); box.appendChild(row);
+    enhance(m); enhance(su);
   });
   $("btnAddLane").disabled = raceLanes.length >= 4;
 }
@@ -988,6 +1054,67 @@ function fillSelect(sel, withOff, withCustom) {
 function setSelect(sel, value) {      // a model typed by hand, or one the list lacks, is added instead of lost
   if (![...sel.options].some((o) => o.value === value)) { const o = h("option", "", value); o.value = value; sel.insertBefore(o, sel.firstChild); }
   sel.value = value;
+  if (sel._picker) sel._picker.refresh();
+}
+
+/* ---------- searchable model picker ---------- */
+const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._\-\[\]:/@]{0,119}$/;   // what the server accepts as a model name
+function enhance(select) {
+  if (select._picker) return select._picker;
+  const wrap = h("span", "picker"), btn = h("button", "pick pickbtn"), pop = h("div", "pickpop");
+  const search = document.createElement("input"), list = h("div", "picklist"), foot = h("div", "pickfoot");
+  btn.type = "button"; btn.setAttribute("aria-haspopup", "listbox");
+  search.type = "search"; search.placeholder = "חפש דגם או ספק, או הקלד מזהה"; search.dir = "auto"; search.autocomplete = "off";
+  search.setAttribute("aria-label", "חיפוש דגם");
+  pop.hidden = true; pop.append(search, list, foot); wrap.append(btn, pop);
+  select.hidden = true; select.after(wrap);
+  let items = [], active = 0;
+  const entries = () => [...select.options].filter((o) => o.value !== "__custom").map((o) => ({
+    value: o.value, label: o.textContent, group: o.parentElement.tagName === "OPTGROUP" ? o.parentElement.label : "" }));
+  const refresh = () => { const o = select.selectedOptions[0]; btn.textContent = o ? o.textContent : "בחר דגם"; btn.disabled = select.disabled; btn.title = select.title || ""; };
+  function render() {
+    const typed = search.value.trim(), words = typed.toLowerCase().split(/\s+/).filter(Boolean);
+    const all = entries();
+    const hits = all.filter((e) => words.every((w) => `${e.label} ${e.value} ${e.group}`.toLowerCase().includes(w)));
+    items = hits.slice(0, 150);
+    if (typed && MODEL_RE.test(typed) && !all.some((e) => e.value === typed)) items.push({ value: typed, label: `השתמש ב-"${typed}"`, group: "", custom: true });
+    active = Math.max(0, Math.min(active, items.length - 1));
+    list.replaceChildren();
+    let last = null;
+    items.forEach((it, i) => {
+      if (!it.custom && it.group !== last) { list.appendChild(h("div", "pickgroup", it.group || "אחר")); last = it.group; }
+      const row = h("div", "pickitem" + (i === active ? " on" : ""), it.label);
+      row.setAttribute("role", "option"); row.onmousedown = (e) => { e.preventDefault(); choose(i); };
+      list.appendChild(row);
+    });
+    foot.textContent = hits.length > 150 ? `מוצגים 150 מתוך ${hits.length}. חדד את החיפוש.` : `${hits.length} דגמים`;
+    const on = list.querySelector(".pickitem.on"); if (on) on.scrollIntoView({ block: "nearest" });
+  }
+  function choose(i) {
+    const it = items[i]; if (!it) return;
+    if (it.custom) setSelect(select, it.value); else select.value = it.value;
+    refresh(); close(); select.dispatchEvent(new Event("change"));
+  }
+  function open() {
+    if (select.disabled) return;
+    search.value = ""; pop.hidden = false;
+    active = Math.max(0, entries().findIndex((e) => e.value === select.value));
+    render(); search.focus();
+  }
+  function close() { pop.hidden = true; }
+  btn.onclick = () => (pop.hidden ? open() : close());
+  search.oninput = () => { active = 0; render(); };
+  search.onkeydown = (e) => {
+    if (e.key === "ArrowDown") { active = Math.min(items.length - 1, active + 1); render(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { active = Math.max(0, active - 1); render(); e.preventDefault(); }
+    else if (e.key === "Enter") { choose(active); e.preventDefault(); }
+    else if (e.key === "Escape") { close(); btn.focus(); }
+  };
+  document.addEventListener("mousedown", (e) => { if (!wrap.contains(e.target)) close(); });
+  new MutationObserver(refresh).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "title"] });
+  refresh();
+  return (select._picker = { open, close, choose, refresh, items: () => items, popover: pop,
+                             setQuery: (q) => { search.value = q; active = 0; render(); } });
 }
 function buildSettings(providers) {
   fillSelect($("selModel"), false, true); fillSelect($("selSup"), true, false); fillSelect($("selScoutModel"), false, false);
@@ -1005,6 +1132,7 @@ function buildSettings(providers) {
     el.append(h("b", "", p.label), h("small", "", ways.join(" · ") || (p.key_env ? `${p.key_env} ✗` : "")));
     box.appendChild(el);
   }
+  ["selModel", "selSup", "selScoutModel"].forEach((id) => enhance($(id)));   // many models: search instead of scrolling
   syncSup(); renderLaneEditor();
 }
 function syncSup() { $("selSup").disabled = !effortOk(settings.model); }  // nothing to supervise without effort levels
@@ -1076,13 +1204,18 @@ resetState();
   const st = await refreshState();
   const full = await (await fetch("/api/state")).json();
   settings = { ...settings, ...full.defaults, ...(full.running ? full.live : {}) };
-  const [opts, provs] = await Promise.all([fetch("/api/models").then((r) => r.json()).catch(() => []),
-                                           fetch("/api/providers").then((r) => r.json()).catch(() => ({}))]);
-  modelOptions = opts; speedProfiles = full.speed_profiles || []; buildSettings(provs);
+  speedProfiles = full.speed_profiles || [];
+  // The page must not wait for the model list: it can take seconds the first time (it asks the providers). Open at
+  // once with the Claude aliases, connect to the event stream, and fill the real lists in when they arrive.
+  modelOptions = ["sonnet", "opus", "haiku", "fable"].map((a) => ({ id: a, label: a, group: "Claude" }));
+  buildSettings({});
+  renderKeys(await fetch("/api/keys").then((r) => r.json()).catch(() => []));
+  if (location.hash === "#keys") $("keysDetails").open = true;
   if (!full.running) openSettings();
   const es = new EventSource("/events");
   es.onopen = () => resetState();          // the server replays the whole current run on every (re)connect
   es.onmessage = (m) => onEvent(JSON.parse(m.data));
+  refreshConnections();                    // the real model and provider lists, in the background
 })();
 </script>
 </body>

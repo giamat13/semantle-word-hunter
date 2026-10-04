@@ -47,6 +47,21 @@ REASONING_MODEL = re.compile(r"^(o\d|gpt-5)", re.I)  # OpenAI models that accept
 HTTP_TIMEOUT = 600
 
 
+ENV_PATH = Path(__file__).with_name(".env")  # where keys entered in the page are kept; ignored by git
+
+# What can be entered in the page. A slot is one environment variable: the keys, and the address of a custom server.
+KEY_SLOTS = (
+    [{"id": "anthropic", "label": "Anthropic (Claude API)", "env": "ANTHROPIC_API_KEY", "secret": True}]
+    + [{"id": name, "label": cfg["label"], "env": cfg["key_env"][0], "secret": True}
+       for name, cfg in PROVIDERS.items() if cfg.get("key_env") and name != "custom"]
+    + [{"id": "custom", "label": "Custom OpenAI-compatible server: key", "env": "OPENAI_COMPAT_API_KEY", "secret": True},
+       {"id": "custom_base", "label": "Custom OpenAI-compatible server: address", "env": "OPENAI_COMPAT_BASE_URL",
+        "secret": False}]
+)
+_SECRET_OK = re.compile(r"^[A-Za-z0-9._\-:/@+=~]{8,400}$")
+_URL_OK = re.compile(r"^https?://[^\s\"']{3,300}$")
+
+
 def split_model(model: str) -> tuple[str | None, str]:
     """('openai', 'gpt-5') for 'openai:gpt-5'; (None, model) for Claude names, which have no provider prefix."""
     prefix, _, rest = model.partition(":")
@@ -217,9 +232,103 @@ def call(args, provider: str, name: str, system: str, prompt: str, schema: dict,
     return call_http(provider, name, cfg, system, prompt, schema, effort)
 
 
+# ---------- keys entered in the page ----------
+
+def _slot(slot_id: str) -> dict:
+    for slot in KEY_SLOTS:
+        if slot["id"] == slot_id:
+            return slot
+    raise ValueError(f"unknown key slot: {slot_id}")
+
+
+def key_status() -> list[dict]:
+    """Which keys are set. A secret is never returned, only whether it is set and its last four characters."""
+    out = []
+    for slot in KEY_SLOTS:
+        value = os.environ.get(slot["env"], "")
+        out.append({"id": slot["id"], "label": slot["label"], "env": slot["env"], "secret": slot["secret"],
+                    "set": bool(value),
+                    "hint": (value[-4:] if slot["secret"] and len(value) >= 12 else "") if slot["secret"] else value})
+    return out
+
+
+def _write_env(name: str, value: str | None) -> None:
+    """Sets, replaces or removes one NAME=value line of .env, keeping every other line and comment as they are."""
+    lines = ENV_PATH.read_text(encoding="utf-8-sig").splitlines() if ENV_PATH.exists() else []
+    kept, found = [], False
+    for line in lines:
+        bare = line.strip().removeprefix("export ").strip()
+        if bare.split("=", 1)[0].strip() == name and "=" in bare:
+            found = True
+            if value is not None:
+                kept.append(f"{name}={value}")
+        else:
+            kept.append(line)
+    if not found and value is not None:
+        kept.append(f"{name}={value}")
+    tmp = ENV_PATH.with_name(f"{ENV_PATH.name}.{os.getpid()}.tmp")
+    tmp.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    tmp.replace(ENV_PATH)
+
+
+def save_key(slot_id: str, value: str, persist: bool = True) -> None:
+    """Uses the key from now on (this process), and keeps it in .env when `persist`. An empty value removes it.
+    Raises ValueError for anything that does not look like a key or an address, so a line break or a quote can
+    never end up in .env."""
+    slot = _slot(slot_id)
+    value = (value or "").strip()
+    if value:
+        ok = _SECRET_OK if slot["secret"] else _URL_OK
+        if not ok.match(value):
+            raise ValueError("that does not look like a " + ("key" if slot["secret"] else "web address (http://...)"))
+        os.environ[slot["env"]] = value
+    else:
+        os.environ.pop(slot["env"], None)
+    if persist:
+        _write_env(slot["env"], value or None)
+    reset_cache()
+
+
+def reset_cache() -> None:
+    global _cache
+    _cache = (0.0, [])
+
+
+def check_key(slot_id: str) -> dict:
+    """Asks the provider whether the key works, with the cheapest call it has: listing its models."""
+    slot = _slot(slot_id)
+    value = os.environ.get(slot["env"], "")
+    if not value:
+        return {"ok": False, "message": "not set"}
+    try:
+        if slot_id == "anthropic":
+            r = requests.get("https://api.anthropic.com/v1/models", params={"limit": 1}, timeout=15,
+                             headers={"x-api-key": value, "anthropic-version": "2023-06-01"})
+        elif slot_id == "custom_base":
+            r = requests.get(f"{value.rstrip('/')}/models", timeout=8)
+        else:
+            cfg = PROVIDERS["custom" if slot_id == "custom" else slot_id]
+            base = base_url(cfg)
+            if not base:
+                return {"ok": False, "message": "set the server address first"}
+            r = requests.get(f"{base}/models", headers={"Authorization": f"Bearer {value}"}, timeout=15)
+    except requests.RequestException as e:
+        return {"ok": False, "message": f"could not reach the server ({type(e).__name__})"}
+    if r.status_code == 200:
+        return {"ok": True, "message": "works"}
+    if r.status_code in (401, 403):
+        return {"ok": False, "message": f"the provider rejected the key (HTTP {r.status_code})"}
+    return {"ok": False, "message": f"unexpected answer (HTTP {r.status_code})"}
+
+
 # ---------- listing models for the UI ----------
 
 _cache: tuple[float, list[dict]] = (0.0, [])
+
+
+# Models that cannot play a word game (they do not chat): embeddings, speech, images, moderation, rerankers.
+NOT_CHAT = re.compile(r"embed|whisper|tts|dall-e|moderation|rerank|davinci|babbage|transcribe|sora|"
+                      r"realtime|audio|image|vision-only|guard", re.I)
 
 
 def _list_one(provider: str, cfg: dict) -> list[dict]:
@@ -233,7 +342,7 @@ def _list_one(provider: str, cfg: dict) -> list[dict]:
         return []
     # Google lists ids as "models/gemini-..."; the chat endpoint wants the bare name.
     return [{"id": f"{provider}:{i.removeprefix('models/')}", "label": i.removeprefix("models/"),
-             "group": cfg["label"]} for i in ids if i]
+             "group": cfg["label"]} for i in sorted(ids) if i and not NOT_CHAT.search(i)]
 
 
 def local_models(limit: int = 4) -> list[dict]:

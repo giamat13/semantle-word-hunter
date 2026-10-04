@@ -321,6 +321,8 @@ def make_handler(hub: Hub, hooks: dict, port: int):
                 return self._json(200, hooks["model_options"]())
             if path == "/api/providers":
                 return self._json(200, hooks["provider_status"]())
+            if path == "/api/keys":
+                return self._json(200, hooks["key_status"]())
             if path == "/events":
                 return self._stream()
             self._json(404, {"error": "not found"})
@@ -337,6 +339,17 @@ def make_handler(hub: Hub, hooks: dict, port: int):
             if self.path == "/api/start":
                 status = hub.request_run(clean_overrides(raw if isinstance(raw, dict) else {}, hooks))
                 return self._json(200, {"status": status})
+            if self.path in ("/api/keys", "/api/keys/check"):
+                body = raw if isinstance(raw, dict) else {}
+                slot = body.get("id") if isinstance(body.get("id"), str) else ""
+                try:
+                    if self.path == "/api/keys":
+                        hooks["save_key"](slot, body.get("value") if isinstance(body.get("value"), str) else "",
+                                          body.get("persist") is not False)
+                    return self._json(200, {"ok": True, "check": hooks["check_key"](slot) if body.get("value", "x") else
+                                            {"ok": False, "message": "removed"}, "keys": hooks["key_status"]()})
+                except ValueError as e:
+                    return self._json(400, {"ok": False, "error": str(e)})
             if self.path == "/api/race":
                 lanes, limit = clean_lanes(raw)
                 if len(lanes) < 2:

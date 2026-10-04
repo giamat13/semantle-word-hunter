@@ -4161,6 +4161,332 @@
    "guess_count": 39,
    "best_similarity": 100.0,
    "best_rank": 1000
+  },
+  {
+   "id": "66e8563900b1451792473ab34e828d79",
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 23.73,
+     "rank_after": 0,
+     "size": 10,
+     "asked": 10,
+     "seconds": 15.8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 2,
+      "model": "haiku"
+     },
+     "scouts": {}
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early exploration with broad probes needs minimal thinking and modest scout help; two haiku scouts are fast and economical for initial word-space sampling.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 2,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    }
+   ],
+   "seconds": 16,
+   "guess_count": 10,
+   "best_similarity": 23.73,
+   "best_rank": null
+  },
+  {
+   "id": "c27c2dfa7c534eabab890ffea2b6fd9f",
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "ollama:qwen3:8b",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "ollama:qwen3:8b",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "medium",
+     "reason": "supervisor call failed (BadRequestError); rule: more scouts after 2 stalled rounds, one effort level up after 3",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 129,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "cf6f84c9b24c4b948b22295401e79c07",
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "First-round exploration benefits from broad initial probes without overhead; low effort and two scouts on haiku provide efficient early-game coverage while the player makes broad initial guesses.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 2,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 17,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "81bab81e24ea41c991efff34194a0e87",
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "openai:gpt-4o",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "openai:gpt-4o",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "medium",
+     "reason": "Early exploration with broad probes benefits from cheap scouts on a small model; two scouts balance exploration cost against discovery without overkill at this stage with no prior knowledge of target direction.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 2,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 16,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "dc4ca24740184d02b535f94f90d69246",
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "First round of new game: early exploration needs minimal budget; one haiku scout provides light guidance for broad probes while effort stays low.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 16,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "72ae1818496e4b16a59c57e92dea44e4",
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "google:gemini-3.8-flash",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "google:gemini-3.8-flash",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "medium",
+     "reason": "Early exploration needs broad probes with minimal overhead; two haiku scouts balance information gathering against cost efficiency for the first round.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 2,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 21,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "4e89c3efa0ff4767a7f17464c32365bd",
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "google:gemini-3.7-flash",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "google:gemini-3.7-flash",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "medium",
+     "reason": "First round exploration needs quick broad probes without over-investing; one scout on a fast small model suffices to sketch the semantic field before the main model's reasoning pass.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 17,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
   }
  ],
  "lessons": [],

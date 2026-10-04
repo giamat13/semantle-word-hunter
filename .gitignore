@@ -7,3 +7,6 @@ __pycache__/
 
 # Optional local tooling, not part of the project
 tools/
+
+# API keys live here, never in git (copy .env.example to .env)
+.env
