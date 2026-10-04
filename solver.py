@@ -653,7 +653,8 @@ def decision_text(log: list[dict]) -> str:
     for d in log:
         out = d.get("outcome")
         result = "pending" if not out else ("improved the best score or rank" if out["improved"] else "no gain")
-        change = f"{d['previous']} -> {d['effort']}" if d["previous"] != d["effort"] else f"kept {d['effort']}"
+        change = (f"{d['previous']} -> {d['effort']}" if d["previous"] != d["effort"] else f"kept {d['effort']}"
+                  ) if d.get("has_effort", True) else "no effort levels"
         scouts = ""
         if d.get("subagents") is not None:
             was = d.get("previous_subagents")
@@ -672,8 +673,9 @@ def supervisor_digest(know: dict, game: dict) -> str:
     decisions = []
     for g in past:
         for r in g.get("rounds", []):
-            by[r["effort"]][0] += 1
-            by[r["effort"]][1] += 1 if r["improved"] else 0
+            if r.get("effort"):  # rounds of a model without effort levels say nothing about effort
+                by[r["effort"]][0] += 1
+                by[r["effort"]][1] += 1 if r["improved"] else 0
             b = r.get("budget")
             if b:
                 key = f"{b['subagents']} scouts ({b['tier']})" if b["subagents"] else "no scouts"
@@ -710,7 +712,8 @@ def reflect_supervisor(client, args, game: dict, know: dict) -> list[str]:
     def budget(r):
         b = r.get("budget")
         return f", scouts {b['subagents']} ({b['tier']})" if b else ""
-    rounds = "\n".join(f"round {r['n']}: effort {r['effort']}{budget(r)}, best similarity {r['best_after']:.1f}, "
+    rounds = "\n".join(f"round {r['n']}: {'effort ' + r['effort'] if r.get('effort') else 'no effort levels'}{budget(r)}, "
+                       f"best similarity {r['best_after']:.1f}, "
                        f"{'improved' if r['improved'] else 'no gain'}" for r in game.get("rounds", []))
     earlier = know.get("supervisor_lessons", [])[-10:]
     prompt = (
@@ -784,6 +787,7 @@ class Supervisor:
     def _announce(self, new: dict, effort: str, budget: dict, stalled: int, previous_effort: str) -> None:
         self.verdict = {"effort": new["effort"], "subagents": new["subagents"], "tier": new["tier"]}
         self.emit({"type": "supervisor", "effort": new["effort"], "previous": previous_effort, "reason": new["reason"],
+                   "has_effort": effort_ok(self.args.model),
                    "stalled": stalled, "subagents": new["subagents"], "previous_subagents": budget["subagents"],
                    "scout_tier": new["tier"], "previous_tier": budget["tier"]})
 
@@ -895,7 +899,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     def emit(ev: dict) -> None:  # the supervisor's decisions are also kept in the game record
         if ev["type"] == "supervisor":
             sup_log.append({"after_round": len(rounds), "previous": ev["previous"], "effort": ev["effort"],
-                            "reason": ev["reason"], "stalled": ev.get("stalled"),
+                            "reason": ev["reason"], "stalled": ev.get("stalled"), "has_effort": ev.get("has_effort", True),
                             "subagents": ev.get("subagents"), "previous_subagents": ev.get("previous_subagents"),
                             "scout_tier": ev.get("scout_tier"), "outcome": None})
         raw_emit(ev)
@@ -906,7 +910,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
     rejected: list[str] = []
     memory = build_memory(view, game)
 
-    emit({"type": "start", "puzzle": puzzle, "model": args.model, "effort": "auto",
+    emit({"type": "start", "puzzle": puzzle, "model": args.model, "effort": "auto" if effort_ok(args.model) else None,
           "backend": args.backend, "supervisor": args.supervisor, "subagents": args.subagents, "test": args.test, "past_games": len(view["games"]) - 1, "thresholds": thresholds,
           "resumed": resumed})
     for i, h in enumerate(history, 1):
@@ -955,7 +959,9 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                 if history:
                     supervisor.review(history, best_per_round, effort, thresholds, budget)
             scout_model = args.model if budget["tier"] == "strong" else args.subagent_model
-            emit({"type": "waiting", "effort": effort, "budget": dict(budget)})
+            levels = effort_ok(args.model)  # models without effort levels (Haiku, most local models) show none
+            shown_effort = effort if levels else None
+            emit({"type": "waiting", "effort": shown_effort, "model": args.model, "budget": dict(budget)})
             scouts = run_scouts(client, args, history, rejected, thresholds, emit, budget["subagents"], scout_model)
             prev_best = max((h["similarity"] for h in history), default=None)
             prev_rank = max((h["distance"] for h in history if h["distance"] and h["distance"] > 0), default=0)
@@ -964,7 +970,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                                build_prompt(memory, history, rejected, thresholds, scouts),
                                SCHEMA, effort)
             emit({"type": "reasoning", "text": data["reasoning"], "guesses": data["guesses"],
-                  "effort": effort, "budget": dict(budget), "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens")})
+                  "effort": shown_effort, "model": args.model, "budget": dict(budget), "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens")})
             progressed = False
             for word in data["guesses"][:MAX_GUESSES]:  # the model sets the size; this only caps a runaway reply
                 if stop.is_set():
@@ -999,7 +1005,7 @@ def play(args, emit, stop: threading.Event | None = None, live: dict | None = No
                     scout_use[role] = {"proposed": len(words), "used": len(taken),
                                        "sum_sim": round(sum(h["similarity"] for h in taken), 2),
                                        "ranked": sum(1 for h in taken if h["distance"] and h["distance"] > 0)}
-                rounds.append({"n": len(rounds) + 1, "model": args.model, "effort": effort, "improved": improved,
+                rounds.append({"n": len(rounds) + 1, "model": args.model, "effort": shown_effort, "improved": improved,
                                "best_after": best_after, "rank_after": rank_after,
                                "size": len(accepted), "asked": len(data["guesses"]),
                                "thinking_tokens": (data.get("_meta") or {}).get("thinking_tokens"),
@@ -1069,12 +1075,14 @@ def make_cli_emit(verbose: bool):
         t = ev["type"]
         if t == "start":
             resumed = f" | resuming {ev['resumed']} saved guesses" if ev["resumed"] else ""
-            print(f"Puzzle {ev['puzzle']} | model: {ev['model']} | effort: {ev['effort']} | "
+            print(f"Puzzle {ev['puzzle']} | model: {ev['model']} | "
+                  f"{'effort: ' + ev['effort'] + ' | ' if ev.get('effort') else ''}"
                   f"past games: {ev['past_games']}{resumed}")
         elif t == "reasoning" and verbose:
-            print(f"  [claude/{ev['effort']}] {ev['text']}")
+            print(f"  [{ev.get('model', 'model')}{'/' + ev['effort'] if ev.get('effort') else ''}] {ev['text']}")
         elif t == "supervisor":
-            change = f"{ev['previous']} -> {ev['effort']}" if ev["effort"] != ev["previous"] else f"keep {ev['effort']}"
+            change = ((f"{ev['previous']} -> {ev['effort']}" if ev["effort"] != ev["previous"] else f"keep {ev['effort']}")
+                      if ev.get("has_effort", True) else "no effort levels")
             scouts = ""
             if ev.get("subagents") is not None:
                 scouts = f", scouts {ev['previous_subagents']} -> {ev['subagents']} ({ev['scout_tier']})"

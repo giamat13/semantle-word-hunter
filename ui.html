@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700;900&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* Layout concept: a lab notebook for a word-temperature game. A hero that reads like a thermometer,
-   the search trail as a chart and a table, and Claude's reasoning as a running log beside them. */
+   the search trail as a chart and a table, and the model's reasoning as a running log beside them. */
 :root {
   --bg: #ECEFF4;
   --surface: #FFFFFF;
@@ -306,7 +306,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
       <div class="field wide"><span class="lbl">חיבורים</span><div class="provs" id="providers"></div>
         <div class="hint">לכל ספק שתי דרכים: מפתח API, או ה-CLI הרשמי שלו כשאתה מחובר עם המנוי (בלי מפתח). שרתים מקומיים לא צריכים כלום. דגם מוקלד ידנית כ-ספק:דגם.</div></div>
     </div>
-    <p class="note">המפקח בודק את ההתקדמות במקביל ויכול להעלות או להוריד את רמת המאמץ של המודל. הוא גם בוחר את הרמה ההתחלתית. כשהמפקח כבוי, המודל רץ ברמה בינונית לאורך כל המשחק. חשיבה מורחבת פועלת תמיד.</p>
+    <p class="note">המפקח בודק את ההתקדמות במקביל ויכול להעלות או להוריד את רמת המאמץ של המודל. הוא גם בוחר את הרמה ההתחלתית. כשהמפקח כבוי, המודל רץ ברמה בינונית לאורך כל המשחק. למודלים בלי רמות מאמץ (Haiku, רוב המודלים המקומיים) המפקח משנה רק את תקציב הסיירים. חשיבה מורחבת פועלת תמיד.</p>
     <div><button class="btn primary" id="btnStart">התחל לפתור</button></div>
   </section>
 
@@ -329,8 +329,8 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
         <div class="stats">
           <span>ניחושים <b id="stGuesses">0</b></span>
           <span>סבבים <b id="stRounds">0</b></span>
-          <span>מאמץ <b id="stEffort">–</b></span>
-          <span>חשיבה אחרונה <b id="stThink">–</b></span>
+          <span id="stEffortWrap" hidden>מאמץ <b id="stEffort">–</b></span>
+          <span id="stThinkWrap" hidden>חשיבה אחרונה <b id="stThink">–</b></span>
           <button class="btn" id="btnShare" hidden title="טקסט בלי ספוילר, בסגנון Wordle">העתק לשיתוף</button>
         </div>
       </section>
@@ -357,7 +357,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
 
     <div class="col">
       <section class="card">
-        <h2>מה Claude חושב</h2>
+        <h2>מה המודל חושב</h2>
         <div class="feed" id="feed"><div class="empty" id="feedEmpty">עדיין לא התחיל. פתח את ההגדרות והתחל.</div></div>
       </section>
       <section class="card">
@@ -409,7 +409,7 @@ function resetState() {
 
 function h(tag, cls, text) {
   const e = document.createElement(tag);
-  if (tag === "p" || tag === "li") e.dir = "auto";   // Claude writes in English; keep it readable in an RTL page
+  if (tag === "p" || tag === "li") e.dir = "auto";   // models usually write in English; keep it readable in an RTL page
   if (cls) e.className = cls;
   if (text !== undefined) e.textContent = text;
   return e;
@@ -442,7 +442,9 @@ function renderHero() {
   $("stGuesses").textContent = S.guesses.length;
   $("stRounds").textContent = S.rounds;
   $("stEffort").textContent = S.effort ? (EFFORT_LABEL[S.effort] || S.effort) : "–";
+  $("stEffortWrap").hidden = !S.effort;   // a model without effort levels has nothing to show
   $("stThink").textContent = S.think != null ? `${S.think} טוקנים` : "–";
+  $("stThinkWrap").hidden = S.think == null;   // not every model reports its thinking
   renderThermo();
   renderPhase();
 }
@@ -786,17 +788,22 @@ function clearWait() { if (S.waitEl) { S.waitEl.remove(); S.waitEl = null; } cle
 function onWaiting(ev) {
   clearWait();
   const it = h("div", "item"); const head = h("div", "head");
-  const sp = h("span", "spin"); const t = h("b", "", "Claude חושב… 0 שנ׳");
-  head.append(sp, t, h("span", "badge", EFFORT_LABEL[ev.effort] || ev.effort || ""));
+  const name = shortModel(ev.model || (S.run && S.run.model));   // the model that is actually playing, not "Claude"
+  const sp = h("span", "spin"); const t = h("b");
+  const label = (secs) => { const b = document.createElement("bdi"); b.textContent = name; t.replaceChildren(b, ` חושב… ${secs} שנ׳`); };
+  label(0);
+  head.append(sp, t);
+  if (ev.effort) head.append(h("span", "badge", EFFORT_LABEL[ev.effort] || ev.effort));
   it.appendChild(head); S.waitEl = it; S.waitStart = Date.now(); feedAdd(it);
-  waitTimer = setInterval(() => { t.textContent = `Claude חושב… ${Math.round((Date.now() - S.waitStart) / 1000)} שנ׳`; }, 500);
+  waitTimer = setInterval(() => label(Math.round((Date.now() - S.waitStart) / 1000)), 500);
   S.effort = ev.effort; setStatus("running", "חושב…"); renderHero();
 }
 
 function onReasoning(ev) {
   clearWait(); S.rounds += 1; S.effort = ev.effort; S.think = ev.thinking_tokens;
   const it = h("div", "item"); const head = h("div", "head");
-  head.append(h("b", "", `סבב ${S.rounds}`), h("span", "badge", `מאמץ ${EFFORT_LABEL[ev.effort] || ev.effort}`));
+  head.append(h("b", "", `סבב ${S.rounds}`));
+  if (ev.effort) head.append(h("span", "badge", `מאמץ ${EFFORT_LABEL[ev.effort] || ev.effort}`));
   if (ev.thinking_tokens != null) head.appendChild(h("span", "", `חשיבה ${ev.thinking_tokens} טוקנים`));
   it.append(head, h("p", "", ev.text));
   const chips = h("div", "chips"); S.lastChips = [];
@@ -813,7 +820,8 @@ function markChip(word, sim, d, rejected) {
 function onSupervisor(ev) {
   const changed = ev.effort !== ev.previous;
   const it = h("div", "item sup"); const head = h("div", "head");
-  head.append(h("b", "", "מפקח"), h("span", "badge", ev.previous === "auto" ? `רמה התחלתית: ${EFFORT_LABEL[ev.effort]}`
+  head.append(h("b", "", "מפקח"));
+  if (ev.has_effort !== false) head.append(h("span", "badge", ev.previous === "auto" ? `רמה התחלתית: ${EFFORT_LABEL[ev.effort]}`
     : changed ? `${EFFORT_LABEL[ev.previous]} ← ${EFFORT_LABEL[ev.effort]}` : `נשאר ${EFFORT_LABEL[ev.effort]}`));
   if (ev.subagents != null) head.appendChild(h("span", "badge", (ev.subagents !== ev.previous_subagents && ev.previous_subagents != null
     ? `סיירים ${ev.previous_subagents} ← ${ev.subagents}` : `סיירים ${ev.subagents}`) + (ev.subagents ? (ev.scout_tier === "strong" ? " · חזקים" : " · זולים") : "")));
