@@ -1,0 +1,387 @@
+{
+ "version": 1,
+ "rejected": [
+  "אי שקט",
+  "חוסר מנוחה",
+  "התקפת פתע",
+  "מתקפת נגד"
+ ],
+ "games": [
+  {
+   "puzzle": 1687,
+   "date": "2026-10-04",
+   "model": "sonnet",
+   "solved": true,
+   "secret": "תבוסה",
+   "guesses": [
+    {
+     "guess": "חופש",
+     "similarity": 20.21,
+     "distance": -1
+    },
+    {
+     "guess": "משפחה",
+     "similarity": 14.34,
+     "distance": -1
+    },
+    {
+     "guess": "כסף",
+     "similarity": 17.83,
+     "distance": -1
+    },
+    {
+     "guess": "מלחמה",
+     "similarity": 58.34,
+     "distance": 282
+    },
+    {
+     "guess": "זמן",
+     "similarity": 23.62,
+     "distance": -1
+    },
+    {
+     "guess": "אויב",
+     "similarity": 41.16,
+     "distance": -1
+    },
+    {
+     "guess": "שלום",
+     "similarity": 27.82,
+     "distance": -1
+    },
+    {
+     "guess": "קרב",
+     "similarity": 53.8,
+     "distance": -1
+    },
+    {
+     "guess": "צבא",
+     "similarity": 48.59,
+     "distance": -1
+    },
+    {
+     "guess": "חייל",
+     "similarity": 24.38,
+     "distance": -1
+    },
+    {
+     "guess": "נשק",
+     "similarity": 25.92,
+     "distance": -1
+    },
+    {
+     "guess": "ניצחון",
+     "similarity": 63.33,
+     "distance": 797
+    },
+    {
+     "guess": "התקפה",
+     "similarity": 59.23,
+     "distance": 436
+    },
+    {
+     "guess": "אלימות",
+     "similarity": 27.99,
+     "distance": -1
+    },
+    {
+     "guess": "כיבוש",
+     "similarity": 55.79,
+     "distance": -1
+    },
+    {
+     "guess": "תבוסה",
+     "similarity": 100.0,
+     "distance": 1000
+    }
+   ],
+   "lessons": [
+    "A single broad probe from a conflict field (מלחמה, 58 with a rank) located the right field by guess 4, so include one high-yield abstract-social word like war/conflict among the first probes.",
+    "After the field was found, the best-ranked words (ניצחון, התקפה) were outcomes and actions of the top word, and the secret was the opposite of the highest scorer (ניצחון), so guess the opposite/outcome of the best-ranked word right after the first rank appears.",
+    "Concrete-category probes inside the field (חייל, נשק) scored low (about 25) while abstract event words scored 50-63, so inside a field prefer abstract event/outcome words over objects and people.",
+    "Guesses 5-7 and 10-11 (זמן, שלום, חייל, נשק) were spent on side probes that scored below 30; after a rank appears, limit off-field probes to one per batch."
+   ],
+   "thresholds": {
+    "nearest": 88.69,
+    "tenth": 72.58,
+    "thousandth": 56.88
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 58.34,
+     "rank_after": 282,
+     "words": [
+      "חופש",
+      "משפחה",
+      "כסף",
+      "מלחמה",
+      "זמן"
+     ],
+     "thinking_tokens": 0,
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 58.34,
+     "rank_after": 282,
+     "words": [
+      "אויב",
+      "שלום",
+      "קרב",
+      "צבא",
+      "חייל"
+     ],
+     "thinking_tokens": 0,
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": [
+        [
+         "אויב",
+         41.16,
+         -1
+        ],
+        [
+         "שלום",
+         27.82,
+         -1
+        ]
+       ]
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": [
+        [
+         "אויב",
+         41.16,
+         -1
+        ],
+        [
+         "קרב",
+         53.8,
+         -1
+        ]
+       ]
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": [
+        [
+         "אויב",
+         41.16,
+         -1
+        ],
+        [
+         "שלום",
+         27.82,
+         -1
+        ],
+        [
+         "קרב",
+         53.8,
+         -1
+        ],
+        [
+         "צבא",
+         48.59,
+         -1
+        ],
+        [
+         "חייל",
+         24.38,
+         -1
+        ]
+       ]
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 63.33,
+     "rank_after": 797,
+     "words": [
+      "נשק",
+      "ניצחון",
+      "התקפה",
+      "אלימות",
+      "כיבוש"
+     ],
+     "thinking_tokens": 0,
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": [
+        [
+         "נשק",
+         25.92,
+         -1
+        ],
+        [
+         "ניצחון",
+         63.33,
+         797
+        ],
+        [
+         "התקפה",
+         59.23,
+         436
+        ],
+        [
+         "אלימות",
+         27.99,
+         -1
+        ]
+       ]
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": [
+        [
+         "נשק",
+         25.92,
+         -1
+        ],
+        [
+         "ניצחון",
+         63.33,
+         797
+        ],
+        [
+         "אלימות",
+         27.99,
+         -1
+        ]
+       ]
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": [
+        [
+         "נשק",
+         25.92,
+         -1
+        ],
+        [
+         "ניצחון",
+         63.33,
+         797
+        ],
+        [
+         "התקפה",
+         59.23,
+         436
+        ]
+       ]
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 100.0,
+     "rank_after": 1000,
+     "words": [
+      "תבוסה"
+     ],
+     "thinking_tokens": 0,
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": []
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": []
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": [
+        [
+         "תבוסה",
+         100.0,
+         1000
+        ]
+       ]
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early exploration with broad probes needs little thinking; sample semantic dimensions quickly without intensive reasoning.",
+     "stalled": 0,
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Player improved best score/rank in the previous round with low effort; still in early exploration phase with only 1 round completed and varied semantic coverage across top guesses, so continued broad probing at low effort is appropriate.",
+     "stalled": 0,
+     "outcome": {
+      "round": 2,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Only 1 round without improvement (threshold is 3+), still in early exploration phase with normal semantic clustering; cluster circling is typically a strategy issue, not a depth issue.",
+     "stalled": 1,
+     "outcome": {
+      "round": 3,
+      "improved": true,
+      "gain": 4.99
+     }
+    },
+    {
+     "after_round": 3,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Player just improved (0 rounds since best score increased), still in early exploration phase, and low effort suits broad semantic probing at this stage.",
+     "stalled": 0,
+     "outcome": {
+      "round": 4,
+      "improved": true,
+      "gain": 36.67
+     }
+    }
+   ]
+  }
+ ],
+ "lessons": [
+  "Broad probes from abstract and social fields located the right field faster than concrete everyday objects (home, water, animals): the first fifteen guesses on concrete objects gave almost nothing, so open with abstract and social fields.",
+  "Once a field is found, do not spend dozens of guesses on synonyms and inflections of the same word: when several neighbours plateau at the same score, switch to the outcome, the opposite or the cause of the top-ranked words.",
+  "Hebrew construct forms and inflections (construct state, plurals, possessives) score about the same as the base word and waste guesses, so skip them.",
+  "Two earlier games stalled for 5 to 8 rounds (the best score unchanged for 25 to 40 guesses) while every guess stayed inside one cluster; after two rounds without a new best, change axis instead of adding more neighbours."
+ ],
+ "supervisor_lessons": [
+  "Observation from two earlier games (effort levels were not recorded then): the best similarity stayed unchanged for 5 and 8 consecutive rounds while the player circled one cluster of near-synonyms, so stalls of this length are common.",
+  "It is not yet known whether raising effort ends such a stall; the record of effort levels and outcomes starts with the next games, so judge from the effort statistics you are shown, not from assumptions.",
+  "In the one earlier game that ended, the plateau broke when the player switched to the outcome side of the concept; effort levels were not recorded, so whether thinking depth mattered is unknown.",
+  "A single-round stall during active exploration does not warrant escalation; the player's sub-agents can regroup naturally at low effort, so waiting before raising is justified.",
+  "Low effort was not a bottleneck here—the player solved in 4 rounds—suggesting that strategy diversity (switching to a new conceptual axis) can happen without depth increase, so do not conflate strategy stalls with thinking-power gaps.",
+  "Committing to low effort when early rounds show alternate successes (improving in rounds 1, 3, and 4) prevents premature escalation; once a strategy proves it can self-correct within 1-2 rounds, trust it rather than raising."
+ ]
+}

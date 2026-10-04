@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Semantle Word Hunter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700;900&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: a lab notebook for a word-temperature game. A hero that reads like a thermometer,
+   the search trail as a chart and a table, and Claude's reasoning as a running log beside them. */
+:root {
+  --bg: #ECEFF4;
+  --surface: #FFFFFF;
+  --surface-2: #F4F6FA;
+  --ink: #0F1B2D;
+  --ink-2: #46566E;
+  --ink-3: #75849B;
+  --line: #DAE0EA;
+  --accent: #0A6E7C;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #D5ECEF;
+  --warm: #B8420F;
+  --warm-soft: #FBE6D8;
+  --good: #167A3E;
+  --bad: #B3261E;
+  --bad-soft: #FBE3E1;
+  --shadow: 0 1px 2px rgba(15, 27, 45, .06), 0 8px 24px rgba(15, 27, 45, .06);
+  --display: "Frank Ruhl Libre", "David Libre", "Times New Roman", serif;
+  --body: "IBM Plex Sans Hebrew", "Segoe UI", system-ui, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0A111D; --surface: #111A2B; --surface-2: #0D1524; --ink: #E7EDF7; --ink-2: #A3B2C9;
+    --ink-3: #6F7F98; --line: #22304A; --accent: #3FC1D4; --accent-ink: #04242A; --accent-soft: #11343C;
+    --warm: #FB9250; --warm-soft: #3A2314; --good: #4BDB82; --bad: #FF8A82; --bad-soft: #3A1816;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0A111D; --surface: #111A2B; --surface-2: #0D1524; --ink: #E7EDF7; --ink-2: #A3B2C9;
+  --ink-3: #6F7F98; --line: #22304A; --accent: #3FC1D4; --accent-ink: #04242A; --accent-soft: #11343C;
+  --warm: #FB9250; --warm-soft: #3A2314; --good: #4BDB82; --bad: #FF8A82; --bad-soft: #3A1816;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* author display rules (grid, inline-flex) would otherwise beat the hidden attribute */
+html { color-scheme: light; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 15px/1.5 var(--body); font-variant-numeric: tabular-nums;
+  padding-inline: 16px; padding-block: 18px 40px;
+}
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1240px; margin-inline: auto; display: grid; gap: 16px; }
+
+/* ---------- top bar ---------- */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; justify-content: space-between; }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.brand h1 { margin: 0; font: 900 34px/1 var(--display); letter-spacing: -.01em; }
+.brand .sub { color: var(--ink-2); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); font-size: 13px; white-space: nowrap;
+}
+.actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 14px;
+  font-weight: 500; transition: background .15s, border-color .15s;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--bad); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.icon-btn { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; }
+.status {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); font-weight: 500;
+}
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); }
+.status[data-state="running"] .dot { background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+.status[data-state="found"] .dot, .status[data-state="solved"] .dot { background: var(--good); }
+.status[data-state="error"] .dot { background: var(--bad); }
+.status[data-state="stopped"] .dot { background: var(--warm); }
+@keyframes pulse { 50% { transform: scale(1.5); opacity: .45; } }
+
+/* ---------- settings ---------- */
+.settings {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  display: grid; gap: 14px; box-shadow: var(--shadow);
+}
+.settings h2 { margin: 0; font: 700 20px/1.2 var(--display); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 18px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field > label, .field > .lbl { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.field.wide { grid-column: 1 / -1; }
+.hint { font-size: 13px; color: var(--ink-3); min-height: 20px; }
+.field select, .field input[type="number"] {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; width: 100%;
+}
+.seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+.seg button { flex: 1; border: 0; background: transparent; padding: 8px 6px; font-weight: 500; color: var(--ink-2); }
+.seg button + button { border-inline-start: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.check { display: flex; align-items: center; gap: 8px; align-self: end; padding-block: 8px; }
+.note { margin: 0; color: var(--ink-3); font-size: 13px; }
+
+/* ---------- layout ---------- */
+.grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.col { display: grid; gap: 16px; min-width: 0; }
+@media (max-width: 920px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; }
+.card > h2 {
+  margin: 0 0 14px; font-size: 15px; color: var(--ink); font-weight: 600;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+.card > h2::before { content: ""; width: 4px; height: 16px; border-radius: 2px; background: var(--accent); margin-inline-end: 2px; }
+.card > h2 > span:first-child { margin-inline-end: auto; }
+.card > h2 .tools { display: flex; gap: 6px; }
+.card > h2 .count { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+
+/* ---------- hero ---------- */
+.hero { box-shadow: var(--shadow); padding: 20px; display: grid; gap: 18px; }
+.hero .kicker { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.phase { display: flex; gap: 6px; flex-wrap: wrap; }
+.phase span {
+  padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--ink-3);
+  border: 1px solid var(--line); background: var(--surface-2);
+}
+.phase span.done { color: var(--ink-2); }
+.phase span.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.hero-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.best-word { font: 900 clamp(44px, 8vw, 78px)/1 var(--display); letter-spacing: -.02em; overflow-wrap: anywhere; }
+.best-meta { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.best-sim { font: 600 28px/1 var(--body); }
+.rank { display: inline-flex; padding: 3px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.rank.warm { background: var(--warm-soft); color: var(--warm); }
+.rank.far { background: var(--surface-2); color: var(--ink-3); font-weight: 500; }
+.rank.win { background: var(--accent); color: var(--accent-ink); }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 22px; color: var(--ink-2); font-size: 13px; }
+.stats b { color: var(--ink); font-weight: 600; }
+.hero.found { border-color: var(--accent); background: linear-gradient(0deg, var(--accent-soft), var(--surface) 70%); }
+.hero.found .best-word { color: var(--accent); }
+
+/* thermometer */
+.thermo { direction: ltr; position: relative; height: 96px; margin-top: 2px; }
+.thermo .track { position: absolute; inset-inline: 0; top: 46px; height: 16px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.thermo .fill { position: absolute; inset-block: 0; left: 0; width: 0; background: var(--accent); border-radius: 0 8px 8px 0; transition: width .5s cubic-bezier(.2, .8, .2, 1); }
+.thermo .zone { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--warm) 30%, transparent) 4px 6px); }
+.thermo .zlabel { position: absolute; top: 66px; font-size: 11px; color: var(--warm); font-weight: 600; white-space: nowrap; }
+.thermo .dotg { position: absolute; top: 31px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--ink-3); opacity: .55; border: 1.5px solid var(--surface); }
+.thermo .dotg.r { background: var(--surface); border-color: var(--warm); opacity: 1; }
+.thermo .mark { position: absolute; top: 0; transform: translateX(-50%); font-size: 11px; color: var(--ink-2); text-align: center; white-space: nowrap; line-height: 1.25; }
+.thermo .mark::after { content: ""; display: block; width: 1.5px; height: 10px; margin: 2px auto 0; background: var(--warm); }
+.thermo .scale { position: absolute; top: 78px; transform: translateX(-50%); font-size: 11px; color: var(--ink-3); }
+
+/* ---------- chart ---------- */
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--ink-2); margin-bottom: 8px; }
+.legend i { display: inline-block; vertical-align: middle; margin-inline-end: 6px; }
+.chart-box { position: relative; direction: ltr; }
+.chart-box svg { width: 100%; height: auto; display: block; }
+.chart-box text { font-family: var(--body); font-size: 11px; fill: var(--ink-3); }
+.chart-box .lbl-best { fill: var(--ink); font-weight: 600; font-size: 12px; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 6px 10px; font-size: 12px; box-shadow: var(--shadow); direction: rtl;
+  transform: translate(-50%, calc(-100% - 10px)); white-space: nowrap; z-index: 2;
+}
+.tip b { font-size: 14px; }
+.empty { color: var(--ink-3); padding: 24px 8px; text-align: center; }
+
+/* ---------- guesses ---------- */
+.gwrap { max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; }
+th { position: sticky; top: 0; background: var(--surface-2); text-align: start; font-size: 12px; color: var(--ink-3); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+td.n { color: var(--ink-3); width: 44px; }
+td.w { font-weight: 600; font-size: 16px; }
+.bar { display: flex; align-items: center; gap: 10px; direction: ltr; min-width: 130px; }
+.bar .b { flex: 1; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.bar .b i { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.bar span { width: 44px; text-align: right; font-weight: 500; }
+tr.new td { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
+
+/* ---------- feed ---------- */
+.feed { display: grid; gap: 10px; max-height: 620px; overflow: auto; align-content: start; }
+.item { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); display: grid; gap: 8px; min-width: 0; }
+.item .head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--ink-3); }
+.item .head b { color: var(--ink); font-weight: 600; font-size: 13px; }
+.item p { margin: 0; overflow-wrap: anywhere; }
+.badge { padding: 1px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.item.sup { background: transparent; border-style: dashed; }
+.item.sup .badge { background: var(--warm-soft); color: var(--warm); }
+.item.err { background: var(--bad-soft); border-color: var(--bad); }
+.item.good { border-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.gchip { padding: 2px 9px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); font-weight: 600; }
+.gchip small { font-weight: 500; color: var(--ink-3); margin-inline-start: 6px; }
+.gchip.ranked { border-color: var(--warm); background: var(--warm-soft); }
+.gchip.bad { text-decoration: line-through; color: var(--ink-3); }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+ul.lessons { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; margin-inline-end: 8px; }
+
+/* ---------- memory ---------- */
+.mem { display: grid; gap: 12px; }
+.mem .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.mem h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+
+@media (max-width: 560px) {
+  .thermo .mark.m10 { display: none; }     /* the 10th-nearest label collides with "nearest" on a phone */
+  .bar { min-width: 96px; }
+  .bar span { width: 38px; }
+  td, th { padding-inline: 7px; }
+  td.n { width: 30px; }
+  .brand h1 { font-size: 30px; }
+}
+.item textarea { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; resize: vertical; }
+.item.fb { border-color: var(--accent); }
+.check.wide { grid-column: 1 / -1; }
+.item.scouts { background: transparent; }
+.scout { display: grid; gap: 4px; }
+.scout .role { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.switch { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pick { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--ink-2); max-width: 240px; }
+.pick:hover { border-color: var(--ink-3); }
+.provs { display: flex; flex-wrap: wrap; gap: 6px; }
+.prov { display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; }
+.prov.on { border-color: var(--accent); }
+.prov small { color: var(--ink-3); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Word Hunter</h1>
+      <span class="sub">Semantle · צייד מילים אוטומטי</span>
+      <span class="chip" id="chipPuzzle" hidden></span>
+      <span class="chip" id="chipTest" hidden>מצב בדיקה</span>
+      <span class="switch"><select id="selModel" class="pick" aria-label="דגם" title="אפשר להחליף דגם גם באמצע משחק"></select>
+        <input id="txtModel" class="pick" placeholder="ספק:דגם" aria-label="מזהה דגם" hidden>
+        <span class="chip" id="modelNote" hidden>יחול מהסבב הבא</span></span>
+    </div>
+    <div class="actions">
+      <span class="status" id="status" data-state="idle" role="status" aria-live="polite"><span class="dot"></span><span id="statusText">מוכן</span></span>
+      <button class="btn primary" id="btnRun">הרץ</button>
+      <button class="btn danger" id="btnStop" hidden>עצור</button>
+      <button class="btn" id="btnSettings">הגדרות</button>
+      <button class="btn icon-btn" id="btnTheme" aria-label="החלף ערכת צבעים" title="בהיר / כהה">◐</button>
+    </div>
+  </header>
+
+  <section class="settings" id="settings" hidden>
+    <h2>הרצה חדשה</h2>
+    <div class="fields">
+      <div class="field"><label for="selSup">מפקח ברקע</label><select id="selSup"></select></div>
+      <div class="field"><label for="selScouts">סוכני משנה</label><select id="selScouts">
+        <option value="3">3 סיירים</option><option value="2">2 סיירים</option><option value="1">סייר אחד</option><option value="0">כבוי</option></select></div>
+      <div class="field"><label for="selScoutModel">דגם הסיירים</label><select id="selScoutModel"></select></div>
+      <div class="field"><label for="numBatch">ניחושים בכל סבב</label><input type="number" id="numBatch" min="1" max="10"></div>
+      <div class="field"><label for="selBackend">מקור</label><select id="selBackend">
+        <option value="auto">אוטומטי</option><option value="cli">מנוי / CLI, בלי מפתח</option><option value="api">מפתח API</option></select></div>
+      <label class="check wide"><input type="checkbox" id="chkTest"> מצב בדיקה: קורא מ-knowledge.json, כותב רק ל-knowledge_test.json (מתאפס בכל בדיקה)</label>
+      <div class="field wide"><span class="lbl">חיבורים</span><div class="provs" id="providers"></div>
+        <div class="hint">לכל ספק שתי דרכים: מפתח API, או ה-CLI הרשמי שלו כשאתה מחובר עם המנוי (בלי מפתח). שרתים מקומיים לא צריכים כלום. דגם מוקלד ידנית כ-ספק:דגם.</div></div>
+    </div>
+    <p class="note">המפקח בודק את ההתקדמות במקביל ויכול להעלות או להוריד את רמת המאמץ של המודל. הוא גם בוחר את הרמה ההתחלתית. כשהמפקח כבוי, המודל רץ ברמה בינונית לאורך כל המשחק. חשיבה מורחבת פועלת תמיד.</p>
+    <div><button class="btn primary" id="btnStart">התחל לפתור</button></div>
+  </section>
+
+  <main class="grid">
+    <div class="col">
+      <section class="card hero" id="hero">
+        <div class="kicker" id="heroKicker">המילה הכי קרובה עד כה</div>
+        <div class="hero-top">
+          <div class="best-word" id="bestWord">–</div>
+          <div class="best-meta"><span class="best-sim" id="bestSim"></span><span class="rank far" id="bestRank" hidden></span></div>
+        </div>
+        <div class="phase" id="phase" aria-label="שלב החיפוש"></div>
+        <div class="thermo" id="thermo" aria-hidden="true"></div>
+        <div class="stats">
+          <span>ניחושים <b id="stGuesses">0</b></span>
+          <span>סבבים <b id="stRounds">0</b></span>
+          <span>מאמץ <b id="stEffort">–</b></span>
+          <span>חשיבה אחרונה <b id="stThink">–</b></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>מסלול החיפוש</h2>
+        <div class="legend">
+          <span><i style="width:8px;height:8px;border-radius:50%;background:var(--ink-3);opacity:.6"></i>ניחוש</span>
+          <span><i style="width:18px;height:0;border-top:2.5px solid var(--accent)"></i>הטוב ביותר עד כה</span>
+          <span><i style="width:8px;height:8px;border-radius:50%;border:2px solid var(--warm)"></i>בתוך 1000 הקרובות</span>
+          <span id="legThr" hidden><i style="width:18px;height:0;border-top:1.5px dashed var(--warm)"></i>סף כניסה לאלף</span>
+        </div>
+        <div class="chart-box" id="chartBox"></div>
+      </section>
+
+      <section class="card">
+        <h2><span>הניחושים</span><span class="count" id="gCount"></span><span class="tools">
+          <button class="btn" id="btnSort" style="padding:3px 10px;font-size:12px">לפי ציון</button></span></h2>
+        <div class="gwrap"><table>
+          <thead><tr><th>#</th><th>מילה</th><th>דמיון</th><th>דירוג</th></tr></thead>
+          <tbody id="rows"></tbody></table></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card">
+        <h2>מה Claude חושב</h2>
+        <div class="feed" id="feed"><div class="empty" id="feedEmpty">עדיין לא התחיל. פתח את ההגדרות והתחל.</div></div>
+      </section>
+      <section class="card">
+        <h2>זיכרון</h2>
+        <div class="mem" id="mem"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const EFFORT_LABEL = { auto: "אוטומטי", low: "נמוך", medium: "בינוני", high: "גבוה", xhigh: "גבוה מאוד", max: "מקסימלי" };
+
+let S;            // per-run state, reset on every run
+let settings = { model: "sonnet", supervisor: "haiku", batch: 5, backend: "auto", subagents: 3, subagent_model: "haiku", test: false };
+let waitTimer = null;
+let sortBy = "score";
+
+function resetState() {
+  S = { guesses: [], rounds: 0, thresholds: null, run: null, state: "idle", effort: null, think: null,
+        rejected: [], waitEl: null, waitStart: 0, lastChips: [], solved: null, feedbackShown: false };
+  $("feed").replaceChildren(); $("rows").replaceChildren();
+  $("feed").appendChild(Object.assign(document.createElement("div"), { className: "empty", id: "feedEmpty", textContent: "ממתין להתחלה…" }));
+  clearInterval(waitTimer);
+  renderAll();
+}
+
+function h(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (tag === "p" || tag === "li") e.dir = "auto";   // Claude writes in English; keep it readable in an RTL page
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+/* ---------- status ---------- */
+function setStatus(state, text) {
+  S.state = state;
+  $("status").dataset.state = state;
+  $("statusText").textContent = text;
+  $("btnStop").hidden = state !== "running";   // the run buttons are never disabled: pressing run always runs
+  $("btnRun").textContent = S.run ? "הרץ שוב" : "הרץ";
+  $("hero").classList.toggle("found", state === "found" || state === "solved");
+  $("heroKicker").textContent = (state === "found" || state === "solved") ? "המילה הסודית" : "המילה הכי קרובה עד כה";
+}
+
+/* ---------- rendering ---------- */
+const sorted = () => [...S.guesses].sort((a, b) => b.similarity - a.similarity);
+const rankText = (d) => d === 1000 ? "מצאת!" : d > 0 ? `${d}/1000` : "רחוק";
+const rankClass = (d) => d === 1000 ? "win" : d > 0 ? "warm" : "far";
+
+function renderHero() {
+  const best = sorted()[0];
+  $("bestWord").textContent = best ? best.word : "–";
+  $("bestSim").textContent = best ? best.similarity.toFixed(2) : "";
+  const r = $("bestRank");
+  r.hidden = !best;
+  if (best) { r.textContent = rankText(best.distance); r.className = "rank " + rankClass(best.distance); }
+  $("stGuesses").textContent = S.guesses.length;
+  $("stRounds").textContent = S.rounds;
+  $("stEffort").textContent = S.effort ? (EFFORT_LABEL[S.effort] || S.effort) : "–";
+  $("stThink").textContent = S.think != null ? `${S.think} טוקנים` : "–";
+  renderThermo(best);
+  renderPhase();
+}
+
+function renderThermo(best) {
+  const t = $("thermo"); t.replaceChildren();
+  const pct = (v) => Math.max(0, Math.min(100, v)) + "%";
+  const track = h("div", "track");
+  const th = S.thresholds;
+  if (th) { const z = h("div", "zone"); z.style.left = pct(th.thousandth); z.style.right = "0"; track.appendChild(z); }
+  const fill = h("div", "fill"); fill.style.width = best ? pct(best.similarity) : "0%"; track.appendChild(fill);
+  t.appendChild(track);
+  for (const g of S.guesses) { const k = h("div", "dotg" + (g.distance > 0 ? " r" : "")); k.style.left = pct(g.similarity); t.appendChild(k); }
+  if (th) { const zl = h("div", "zlabel", "בתוך 1000 הקרובות"); zl.style.left = pct(th.thousandth); zl.style.marginLeft = "4px"; t.appendChild(zl); }
+  for (const v of [0, 25, 50, 75, 100]) { const s = h("div", "scale", String(v)); s.style.left = pct(v); t.appendChild(s); }
+  if (th) {
+    const marks = [[th.thousandth, "האלף"], [th.tenth, "העשירית"], [th.nearest, "הכי קרוב"]];
+    for (const [v, label] of marks) {
+      const m = h("div", "mark" + (label === "העשירית" ? " m10" : "")); m.innerHTML = `${label}<br>${v}`; m.style.left = pct(v); t.appendChild(m);
+    }
+  }
+}
+
+function renderPhase() {
+  const best = sorted()[0];
+  const th = S.thresholds ? S.thresholds.thousandth : 49;
+  let idx = 0;
+  if (best) idx = S.guesses.some((g) => g.distance > 0) ? 2 : best.similarity >= th * 0.8 ? 1 : 0;
+  if (S.state === "found" || S.state === "solved") idx = 3;
+  const names = ["חקירה", "איתור", "התכנסות", "נמצאה"];
+  const box = $("phase"); box.replaceChildren();
+  names.forEach((n, i) => box.appendChild(h("span", i === idx ? "on" : i < idx ? "done" : "", n)));
+}
+
+function renderRows(flashWord) {
+  $("gCount").textContent = S.guesses.length ? `${S.guesses.length} ניחושים` : "";
+  const body = $("rows"); body.replaceChildren();
+  const list = sortBy === "score" ? sorted() : [...S.guesses].sort((a, b) => b.n - a.n);
+  for (const g of list) {
+    const tr = h("tr", g.word === flashWord ? "new" : "");
+    tr.appendChild(h("td", "n", String(g.n)));
+    tr.appendChild(h("td", "w", g.word));
+    const td = h("td"); const bar = h("div", "bar"); const b = h("div", "b"); const i = h("i");
+    i.style.width = Math.max(0, Math.min(100, g.similarity)) + "%"; b.appendChild(i);
+    bar.append(b, h("span", "", g.similarity.toFixed(1))); td.appendChild(bar); tr.appendChild(td);
+    const tdr = h("td"); tdr.appendChild(h("span", "rank " + rankClass(g.distance), rankText(g.distance))); tr.appendChild(tdr);
+    body.appendChild(tr);
+  }
+}
+
+function renderChart() {
+  const box = $("chartBox");
+  const gs = [...S.guesses].sort((a, b) => a.n - b.n);
+  if (!gs.length) { box.innerHTML = '<div class="empty">המסלול יופיע עם הניחושים הראשונים.</div>'; return; }
+  const W = 720, H = 260, L = 36, R = 18, T = 18, B = 28;
+  const n = Math.max(10, gs.length);
+  // The winning guess (similarity 100) would flatten the whole trail, so it is scaled out and drawn at the top edge.
+  const maxSim = Math.max(...gs.filter((g) => g.distance !== 1000).map((g) => g.similarity), S.thresholds ? S.thresholds.nearest : 0, 40);
+  const ymax = Math.max(60, Math.ceil((maxSim + 4) / 20) * 20);
+  const sim = (g) => (g.distance === 1000 ? ymax : g.similarity);
+  const x = (k) => L + ((k - 1) / (n - 1)) * (W - L - R);
+  const y = (v) => T + (1 - Math.max(0, v) / ymax) * (H - T - B);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ציון הדמיון של כל ניחוש ושל הטוב ביותר עד כה">`;
+  for (let v = 0; v <= ymax; v += 20) {
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>`;
+    svg += `<text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  }
+  const step = n > 40 ? 10 : n > 20 ? 5 : 2;
+  for (let k = step; k <= n; k += step) svg += `<text x="${x(k)}" y="${H - 8}" text-anchor="middle">${k}</text>`;
+  if (S.thresholds) {
+    const ty = y(S.thresholds.thousandth);
+    svg += `<line x1="${L}" x2="${W - R}" y1="${ty}" y2="${ty}" stroke="var(--warm)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+    svg += `<text x="${L + 6}" y="${ty - 6}" text-anchor="start" style="fill:var(--warm);font-weight:600">סף כניסה לאלף · ${S.thresholds.thousandth}</text>`;
+  }
+  let best = -Infinity, d = "";
+  gs.forEach((g, i) => {
+    const prev = best; best = Math.max(best, sim(g));
+    d += i === 0 ? `M${x(g.n)} ${y(best)}` : `H${x(g.n)}${best !== prev ? ` V${y(best)}` : ""}`;
+  });
+  svg += `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  for (const g of gs) {
+    const cx = x(g.n), cy = y(sim(g));
+    if (g.distance === 1000) {
+      svg += `<circle cx="${cx}" cy="${cy}" r="8" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`;
+      svg += `<path d="M${cx - 3.5} ${cy} l2.5 2.8 l4.5 -5.4" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    } else if (g.distance > 0) {
+      svg += `<circle cx="${cx}" cy="${cy}" r="5" fill="var(--surface)" stroke="var(--warm)" stroke-width="2"/>`;
+    } else {
+      svg += `<circle cx="${cx}" cy="${cy}" r="3.5" fill="var(--ink-3)" fill-opacity=".55" stroke="var(--surface)" stroke-width="1.5"/>`;
+    }
+  }
+  const top = gs.reduce((a, g) => (sim(g) > sim(a) ? g : a), gs[0]);
+  const anchor = x(top.n) > W - 90 ? "end" : "start";
+  svg += `<text class="lbl-best" x="${x(top.n) + (anchor === "end" ? -14 : 8)}" y="${y(sim(top)) + (top.distance === 1000 ? 4 : -8)}" text-anchor="${anchor}">${top.word}${top.distance === 1000 ? "" : " " + top.similarity.toFixed(1)}</text>`;
+  svg += `<line id="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-dasharray="3 3" visibility="hidden"/>`;
+  svg += `<rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg><div class="tip" id="tip" hidden></div>`;
+  box.innerHTML = svg;
+  const hit = $("hit"), cross = $("cross"), tip = $("tip");
+  hit.addEventListener("pointermove", (e) => {
+    const r = box.querySelector("svg").getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    let near = gs[0];
+    for (const g of gs) if (Math.abs(x(g.n) - px) < Math.abs(x(near.n) - px)) near = g;
+    cross.setAttribute("x1", x(near.n)); cross.setAttribute("x2", x(near.n)); cross.setAttribute("visibility", "visible");
+    tip.hidden = false;
+    tip.innerHTML = `<b>${near.word}</b> · #${near.n}<br>דמיון ${near.similarity.toFixed(2)} · ${rankText(near.distance)}`;
+    tip.style.left = (x(near.n) / W) * r.width + "px"; tip.style.top = (y(sim(near)) / H) * r.height + "px";
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.hidden = true; });
+}
+
+function renderMemory(k) {
+  const m = $("mem"); m.replaceChildren();
+  if (!k) return;
+  const solved = k.games.filter((g) => g.solved);
+  const a = h("div"); a.appendChild(h("h3", "", `משחקים קודמים · ${k.games.length}`));
+  const row = h("div", "row");
+  if (!solved.length) row.appendChild(h("span", "note", "עדיין אין משחקים שנפתרו."));
+  for (const g of solved.slice(-14).reverse()) row.appendChild(h("span", "chip", `${g.secret} · ${g.guesses}`));
+  a.appendChild(row); m.appendChild(a);
+  const b = h("div"); b.appendChild(h("h3", "", "לקחים שנשמרו"));
+  if (!k.lessons.length) b.appendChild(h("span", "note", "ייכתבו אחרי המשחק הראשון שיסתיים בפתרון."));
+  else { const ul = h("ul", "lessons"); for (const l of k.lessons) ul.appendChild(h("li", "", l)); b.appendChild(ul); }
+  m.appendChild(b);
+  m.appendChild(h("p", "note", `${k.rejected} מילים שהמשחק דחה נשמרו כדי לא לנסות אותן שוב.`));
+}
+
+function renderAll() { renderHero(); renderChart(); renderRows(); }
+
+/* ---------- feed ---------- */
+function feedAdd(el) {
+  const f = $("feed"); const empty = $("feedEmpty"); if (empty) empty.remove();
+  f.prepend(el);
+}
+function clearWait() { if (S.waitEl) { S.waitEl.remove(); S.waitEl = null; } clearInterval(waitTimer); }
+
+function onWaiting(ev) {
+  clearWait();
+  const it = h("div", "item"); const head = h("div", "head");
+  const sp = h("span", "spin"); const t = h("b", "", "Claude חושב… 0 שנ׳");
+  head.append(sp, t, h("span", "badge", EFFORT_LABEL[ev.effort] || ev.effort || ""));
+  it.appendChild(head); S.waitEl = it; S.waitStart = Date.now(); feedAdd(it);
+  waitTimer = setInterval(() => { t.textContent = `Claude חושב… ${Math.round((Date.now() - S.waitStart) / 1000)} שנ׳`; }, 500);
+  S.effort = ev.effort; setStatus("running", "חושב…"); renderHero();
+}
+
+function onReasoning(ev) {
+  clearWait(); S.rounds += 1; S.effort = ev.effort; S.think = ev.thinking_tokens;
+  const it = h("div", "item"); const head = h("div", "head");
+  head.append(h("b", "", `סבב ${S.rounds}`), h("span", "badge", `מאמץ ${EFFORT_LABEL[ev.effort] || ev.effort}`));
+  if (ev.thinking_tokens != null) head.appendChild(h("span", "", `חשיבה ${ev.thinking_tokens} טוקנים`));
+  it.append(head, h("p", "", ev.text));
+  const chips = h("div", "chips"); S.lastChips = [];
+  for (const w of ev.guesses) { const c = h("span", "gchip", w); c.dataset.word = w; chips.appendChild(c); S.lastChips.push(c); }
+  it.appendChild(chips); feedAdd(it); setStatus("running", "מנחש…"); renderHero();
+}
+
+function markChip(word, sim, d, rejected) {
+  const c = S.lastChips.find((x) => x.dataset.word === word); if (!c) return;
+  if (rejected) { c.classList.add("bad"); c.title = "לא במילון"; return; }
+  c.appendChild(h("small", "", sim.toFixed(1))); if (d > 0) c.classList.add("ranked");
+}
+
+function onSupervisor(ev) {
+  const changed = ev.effort !== ev.previous;
+  const it = h("div", "item sup"); const head = h("div", "head");
+  head.append(h("b", "", "מפקח"), h("span", "badge", ev.previous === "auto" ? `רמה התחלתית: ${EFFORT_LABEL[ev.effort]}`
+    : changed ? `${EFFORT_LABEL[ev.previous]} ← ${EFFORT_LABEL[ev.effort]}` : `נשאר ${EFFORT_LABEL[ev.effort]}`));
+  if (ev.stalled) head.appendChild(h("span", "", `${ev.stalled} סבבים בלי שיפור`));
+  it.append(head, h("p", "", ev.reason)); feedAdd(it);
+}
+
+/* ---------- events ---------- */
+function onEvent(ev) {
+  switch (ev.type) {
+    case "reset": resetState(); break;
+    case "start":
+      S.run = ev; S.thresholds = ev.thresholds; S.effort = ev.effort; $("chipTest").hidden = !ev.test;
+      $("chipPuzzle").hidden = false; $("chipPuzzle").textContent = `חידה ${ev.puzzle ?? "?"}`;
+      settings.model = ev.model; setSelect($("selModel"), ev.model);
+      if (ev.supervisor) { settings.supervisor = ev.supervisor; setSelect($("selSup"), ev.supervisor); }
+      syncSup();
+      $("legThr").hidden = !ev.thresholds;
+      setStatus("running", ev.resumed ? `ממשיך מ-${ev.resumed} ניחושים` : "מתחיל…"); closeSettings(); renderAll(); break;
+    case "model": {
+      $("modelNote").hidden = true;
+      if (ev.kind === "main") { settings.model = ev.model; setSelect($("selModel"), ev.model); }
+      else { settings.supervisor = ev.model; setSelect($("selSup"), ev.model); }
+      syncSup();
+      const it = h("div", "item sup"); const head = h("div", "head");
+      head.append(h("b", "", ev.kind === "main" ? "הוחלף דגם" : "הוחלף מפקח"), h("span", "badge", `${ev.previous} ← ${ev.model}`));
+      it.appendChild(head); feedAdd(it); break; }
+    case "subagents": {
+      const it = h("div", "item scouts"); const head = h("div", "head");
+      head.append(h("b", "", "סוכני משנה"), h("span", "badge", `${ev.scouts.length} סיירים · ${ev.model}`));
+      it.appendChild(head);
+      for (const sc of ev.scouts) {
+        const row = h("div", "scout"); row.append(h("span", "role", SCOUT_LABEL[sc.role] || sc.role));
+        const chips = h("div", "chips"); for (const w of sc.candidates) chips.appendChild(h("span", "gchip", w));
+        if (!sc.candidates.length) chips.appendChild(h("small", "", sc.note || "אין הצעות"));
+        row.appendChild(chips); it.appendChild(row);
+      }
+      feedAdd(it); break; }
+    case "supervisor_lessons": {
+      const it = h("div", "item sup"); it.appendChild(h("div", "head")).appendChild(h("b", "", "לקחי המפקח"));
+      const ul = h("ul", "lessons"); for (const l of ev.lessons) ul.appendChild(h("li", "", l)); it.appendChild(ul); feedAdd(it); break; }
+    case "restarting": setStatus("running", "עוצר ומתחיל מחדש…"); break;
+    case "waiting": onWaiting(ev); break;
+    case "reasoning": onReasoning(ev); break;
+    case "supervisor": onSupervisor(ev); break;
+    case "guess":
+      S.guesses.push({ n: ev.n, word: ev.word, similarity: ev.similarity, distance: ev.distance });
+      if (!ev.resumed) markChip(ev.word, ev.similarity, ev.distance, false);
+      renderHero(); renderChart(); renderRows(ev.resumed ? null : ev.word); break;
+    case "rejected": S.rejected.push(ev.word); markChip(ev.word, 0, 0, true); break;
+    case "found":
+      clearWait(); S.solved = ev.secret; setStatus("found", "נמצאה המילה!");
+      { const it = h("div", "item good"); it.append(h("div", "head", ""), h("p", "", `המילה הסודית היא "${ev.secret}". נמצאה אחרי ${ev.guesses} ניחושים.`));
+        it.firstChild.appendChild(h("b", "", "נפתר")); feedAdd(it); } break;
+    case "already_solved":
+      setStatus("solved", "נפתר כבר היום"); $("chipPuzzle").hidden = false; $("chipPuzzle").textContent = `חידה ${ev.puzzle}`;
+      $("bestWord").textContent = ev.secret; $("bestRank").hidden = true; $("bestSim").textContent = `${ev.guesses} ניחושים`;
+      feedAdd(h("div", "item good")); S.waitEl = null; $("feed").firstChild.appendChild(h("p", "", `חידה ${ev.puzzle} כבר נפתרה: "${ev.secret}". אפשר לשחק שוב מההגדרות.`));
+      openSettings(); break;
+    case "lessons": {
+      const it = h("div", "item"); it.appendChild(Object.assign(h("div", "head"), {})).appendChild(h("b", "", "לקחים חדשים"));
+      const ul = h("ul", "lessons"); for (const l of ev.lessons) ul.appendChild(h("li", "", l)); it.appendChild(ul); feedAdd(it); refreshState(); break; }
+    case "stopped": clearWait(); setStatus("stopped", "נעצר");
+      { const it = h("div", "item"); it.appendChild(h("div", "head")).appendChild(h("b", "", "נעצר"));
+        it.appendChild(h("p", "", `${stopReason(ev.reason)}. המשחק נשמר, והרצה הבאה תמשיך ממנו.`)); feedAdd(it); } break;
+    case "error": clearWait(); setStatus("error", "שגיאה");
+      { const it = h("div", "item err"); it.appendChild(h("div", "head")).appendChild(h("b", "", "שגיאה"));
+        it.appendChild(h("p", "", ev.message)); feedAdd(it); } break;
+    case "finished": clearWait(); $("btnStop").hidden = true; refreshState(); showFeedback(); break;
+  }
+}
+function showFeedback() {
+  // After a game the user can tell the supervisor how its effort choices went; the next game's supervisor reads it first.
+  if (S.rounds < 1 || S.feedbackShown) return;
+  S.feedbackShown = true;
+  const it = h("div", "item fb"); const head = h("div", "head"); head.appendChild(h("b", "", "משוב למפקח"));
+  let rating = "";
+  const seg = h("div", "seg");
+  for (const [r, label] of [["low", "נמוכה מדי"], ["ok", "מתאימה"], ["high", "גבוהה מדי"]]) {
+    const b = h("button", "", label); b.type = "button"; b.setAttribute("aria-pressed", "false");
+    b.onclick = () => { rating = r; for (const x of seg.children) x.setAttribute("aria-pressed", String(x === b)); };
+    seg.appendChild(b);
+  }
+  const ta = document.createElement("textarea");
+  ta.rows = 2; ta.dir = "auto"; ta.placeholder = "מה המפקח היה צריך לעשות אחרת? (לא חובה)"; ta.setAttribute("aria-label", "משוב למפקח");
+  const send = h("button", "btn primary", "שלח משוב"); send.type = "button";
+  const msg = h("p", "note", "");
+  send.onclick = async () => {
+    send.disabled = true;
+    const r = await (await post("/api/feedback", { rating, text: ta.value })).json();
+    if (r.saved) it.replaceChildren(head, h("p", "", "נשמר. המפקח יראה את זה ראשון במשחק הבא."));
+    else { msg.textContent = "בחר דירוג או כתוב משהו לפני השליחה."; send.disabled = false; }
+  };
+  it.append(head, h("p", "", "איך הייתה רמת המאמץ שהמפקח בחר במשחק הזה?"), seg, ta, send, msg);
+  feedAdd(it);
+}
+const stopReason = (r) => ({ "stopped by user": "עצרת את ההרצה", "no new words proposed": "המודל לא הציע מילים חדשות כמה סבבים ברצף",
+  "guess limit reached": "הגעת למגבלת הניחושים", interrupted: "ההרצה הופסקה" }[r] || r);
+
+/* ---------- settings + api ---------- */
+function openSettings() { $("settings").hidden = false; }
+function closeSettings() { $("settings").hidden = true; }
+let modelOptions = [];
+const SCOUT_LABEL = { "field-scout": "סייר תחומים", "neighbour-scout": "סייר שכנים", "triangulator": "משלש" };
+const KNOWN_PROVIDERS = ["openai", "google", "ollama", "lmstudio", "openrouter", "groq", "mistral", "deepseek", "xai", "together", "custom"];
+const effortOk = (m) => {          // mirrors the server: only Claude (except Haiku) and OpenAI reasoning models have effort levels
+  if (/haiku/i.test(m)) return false;
+  const [prov, ...rest] = m.split(":");
+  if (!rest.length || !KNOWN_PROVIDERS.includes(prov)) return true;
+  return prov === "openai" && /^(o\d|gpt-5)/i.test(rest.join(":"));
+};
+function fillSelect(sel, withOff, withCustom) {
+  sel.replaceChildren();
+  if (withOff) { const o = h("option", "", "כבוי"); o.value = "off"; sel.appendChild(o); }
+  const groups = new Map();
+  for (const m of modelOptions) {
+    const g = m.group || "אחר";
+    if (!groups.has(g)) { const og = document.createElement("optgroup"); og.label = g; groups.set(g, og); sel.appendChild(og); }
+    const o = h("option", "", m.label); o.value = m.id; groups.get(g).appendChild(o);
+  }
+  if (withCustom) { const o = h("option", "", "אחר… (ספק:דגם)"); o.value = "__custom"; sel.appendChild(o); }
+}
+function setSelect(sel, value) {      // a model typed by hand, or one the list lacks, is added instead of lost
+  if (![...sel.options].some((o) => o.value === value)) { const o = h("option", "", value); o.value = value; sel.insertBefore(o, sel.firstChild); }
+  sel.value = value;
+}
+function buildSettings(providers) {
+  fillSelect($("selModel"), false, true); fillSelect($("selSup"), true, false); fillSelect($("selScoutModel"), false, false);
+  setSelect($("selScoutModel"), settings.subagent_model); $("selScouts").value = String(settings.subagents);
+  setSelect($("selModel"), settings.model); setSelect($("selSup"), settings.supervisor);
+  $("numBatch").value = settings.batch; $("selBackend").value = settings.backend; $("chkTest").checked = !!settings.test;
+  const box = $("providers"); box.replaceChildren();
+  for (const p of Object.values(providers || {})) {
+    const ways = [];
+    if (p.local) ways.push(p.up ? "פועל" : "לא פועל");
+    else { if (p.key) ways.push("מפתח ✓"); if (p.cli_name) ways.push(p.cli ? `${p.cli_name} ✓` : `${p.cli_name} ✗`); }
+    const on = p.local ? p.up : p.key || p.cli;
+    const el = h("span", "prov" + (on ? " on" : ""));
+    el.append(h("b", "", p.label), h("small", "", ways.join(" · ") || (p.key_env ? `${p.key_env} ✗` : "")));
+    box.appendChild(el);
+  }
+  syncSup();
+}
+function syncSup() { $("selSup").disabled = !effortOk(settings.model); }  // nothing to supervise without effort levels
+function applyLive() {
+  if (S.state === "running") { post("/api/live", { model: settings.model, supervisor: settings.supervisor }); $("modelNote").hidden = false; }
+}
+$("selModel").onchange = (e) => {
+  if (e.target.value === "__custom") { $("txtModel").hidden = false; $("txtModel").focus(); return; }
+  $("txtModel").hidden = true; settings.model = e.target.value; syncSup(); applyLive();
+};
+$("txtModel").onkeydown = (e) => {
+  if (e.key !== "Enter") return;
+  const v = e.target.value.trim(); if (!v) return;
+  settings.model = v; setSelect($("selModel"), v); e.target.hidden = true; e.target.value = ""; syncSup(); applyLive();
+};
+$("selSup").onchange = (e) => { settings.supervisor = e.target.value; applyLive(); };
+$("selScouts").onchange = (e) => { settings.subagents = parseInt(e.target.value, 10); };
+$("selScoutModel").onchange = (e) => { settings.subagent_model = e.target.value; };
+$("chkTest").onchange = (e) => { settings.test = e.target.checked; };
+
+async function refreshState() {
+  try {
+    const st = await (await fetch("/api/state")).json();
+    renderMemory(st.knowledge); return st;
+  } catch { return null; }
+}
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  return r;
+}
+
+async function runNow() {
+  // No confirmation and no preconditions: if a game is in progress it is stopped and a new one starts.
+  settings = { model: settings.model, supervisor: settings.supervisor, subagents: settings.subagents, subagent_model: settings.subagent_model, test: settings.test,
+    batch: parseInt($("numBatch").value, 10) || settings.batch, backend: $("selBackend").value || settings.backend };
+  const r = await (await post("/api/start", settings)).json();
+  if (r.status === "restarting") setStatus("running", "עוצר ומתחיל מחדש…");
+}
+$("btnStart").onclick = runNow;
+$("btnRun").onclick = runNow;
+$("btnStop").onclick = async () => { $("btnStop").disabled = true; $("statusText").textContent = "עוצר אחרי הקריאה הנוכחית…"; await post("/api/stop"); $("btnStop").disabled = false; };
+$("btnSettings").onclick = () => { $("settings").hidden ? openSettings() : closeSettings(); };
+$("btnSort").onclick = () => { sortBy = sortBy === "score" ? "order" : "score"; $("btnSort").textContent = sortBy === "score" ? "לפי ציון" : "לפי סדר"; renderRows(); };
+$("btnTheme").onclick = () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("theme", root.dataset.theme); } catch {}
+  renderAll();
+};
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+{ const q = new URLSearchParams(location.search).get("theme");   // ?theme=dark|light overrides for this tab
+  if (q === "dark" || q === "light") document.documentElement.dataset.theme = q; }
+
+/* ---------- boot ---------- */
+resetState();
+(async () => {
+  const st = await refreshState();
+  const full = await (await fetch("/api/state")).json();
+  settings = { ...settings, ...full.defaults, ...(full.running ? full.live : {}) };
+  const [opts, provs] = await Promise.all([fetch("/api/models").then((r) => r.json()).catch(() => []),
+                                           fetch("/api/providers").then((r) => r.json()).catch(() => ({}))]);
+  modelOptions = opts; buildSettings(provs);
+  if (!full.running) openSettings();
+  const es = new EventSource("/events");
+  es.onopen = () => resetState();          // the server replays the whole current run on every (re)connect
+  es.onmessage = (m) => onEvent(JSON.parse(m.data));
+})();
+</script>
+</body>
+</html>

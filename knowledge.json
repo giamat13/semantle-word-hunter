@@ -1,0 +1,21 @@
+{
+ "version": 1,
+ "rejected": [
+  "אי שקט",
+  "חוסר מנוחה",
+  "התקפת פתע",
+  "מתקפת נגד"
+ ],
+ "games": [],
+ "lessons": [
+  "Broad probes from abstract and social fields located the right field faster than concrete everyday objects (home, water, animals): the first fifteen guesses on concrete objects gave almost nothing, so open with abstract and social fields.",
+  "Once a field is found, do not spend dozens of guesses on synonyms and inflections of the same word: when several neighbours plateau at the same score, switch to the outcome, the opposite or the cause of the top-ranked words.",
+  "Hebrew construct forms and inflections (construct state, plurals, possessives) score about the same as the base word and waste guesses, so skip them.",
+  "Two earlier games stalled for 5 to 8 rounds (the best score unchanged for 25 to 40 guesses) while every guess stayed inside one cluster; after two rounds without a new best, change axis instead of adding more neighbours."
+ ],
+ "supervisor_lessons": [
+  "Observation from two earlier games (effort levels were not recorded then): the best similarity stayed unchanged for 5 and 8 consecutive rounds while the player circled one cluster of near-synonyms, so stalls of this length are common.",
+  "It is not yet known whether raising effort ends such a stall; the record of effort levels and outcomes starts with the next games, so judge from the effort statistics you are shown, not from assumptions.",
+  "In the one earlier game that ended, the plateau broke when the player switched to the outcome side of the concept; effort levels were not recorded, so whether thinking depth mattered is unknown."
+ ]
+}

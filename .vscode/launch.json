@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Semantle: solve today (web UI)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/solver.py",
+      "args": ["--ui", "--autostart", "--model", "sonnet"],
+      "console": "integratedTerminal",
+      "env": { "PYTHONIOENCODING": "utf-8" },
+      "justMyCode": true
+    },
+    {
+      "name": "Semantle: TEST run (web UI, writes knowledge_test.json)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/solver.py",
+      "args": ["--ui", "--autostart", "--test", "--model", "sonnet"],
+      "console": "integratedTerminal",
+      "env": { "PYTHONIOENCODING": "utf-8" },
+      "justMyCode": true
+    },
+    {
+      "name": "Semantle: solve today (terminal only)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/solver.py",
+      "args": ["--model", "sonnet", "-v"],
+      "console": "integratedTerminal",
+      "env": { "PYTHONIOENCODING": "utf-8" },
+      "justMyCode": true
+    }
+  ]
+}

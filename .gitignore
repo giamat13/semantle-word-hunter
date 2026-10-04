@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.tmp
+*.log
+
+
+# Optional local tooling, not part of the project
+tools/
