@@ -169,6 +169,26 @@ def _effort_value(effort: str) -> str:
     return {"xhigh": "high", "max": "high"}.get(effort, effort)
 
 
+TOO_LARGE = re.compile(r"request too large|reduce max_tokens", re.I)   # one reply bigger than the per-minute output limit
+RETRY_IN = re.compile(r"try again in (?:(\d+)m)?\s*([\d.]+)(ms|s)", re.I)
+RATE_RETRIES, RATE_MAX_WAIT = 4, 60
+
+
+def _post(url: str, headers: dict, payload: dict, label: str):
+    """POST; a per-minute rate limit (HTTP 429 with a wait time) is waited out, up to RATE_RETRIES times."""
+    for attempt in range(RATE_RETRIES + 1):
+        try:
+            r = requests.post(url, headers=headers, json=payload, timeout=HTTP_TIMEOUT)
+        except requests.RequestException as e:
+            raise RuntimeError(f"{label} unreachable: {e}")
+        m = RETRY_IN.search(r.text) if r.status_code == 429 and not TOO_LARGE.search(r.text) else None
+        if not m or attempt == RATE_RETRIES:
+            return r
+        wait = (int(m.group(1) or 0) * 60 + float(m.group(2)) / (1000 if m.group(3) == "ms" else 1))
+        time.sleep(min(wait + 0.5, RATE_MAX_WAIT))
+    return r
+
+
 def call_http(provider: str, name: str, cfg: dict, system: str, prompt: str, schema: dict, effort: str) -> dict:
     headers = {"Content-Type": "application/json"}
     if key := api_key(cfg):
@@ -182,11 +202,14 @@ def call_http(provider: str, name: str, cfg: dict, system: str, prompt: str, sch
     last = ""
     for fmt in formats:
         payload = {**body, **({"response_format": fmt} if fmt else {})}
-        try:
-            r = requests.post(f"{base_url(cfg)}/chat/completions", headers=headers, json=payload,
-                              timeout=HTTP_TIMEOUT)
-        except requests.RequestException as e:
-            raise RuntimeError(f"{cfg['label']} unreachable: {e}")
+        url = f"{base_url(cfg)}/chat/completions"
+        r = _post(url, headers, payload, cfg["label"])
+        if r.status_code in (413, 429) and "max_tokens" not in body and TOO_LARGE.search(r.text):
+            # the account's output-tokens-per-minute limit is below the model's default reply size: cap the reply
+            m = re.search(r"Limit (\d+)", r.text)
+            body["max_tokens"] = max(200, int(int(m.group(1)) * 0.8)) if m else 800
+            payload = {**body, **({"response_format": fmt} if fmt else {})}
+            r = _post(url, headers, payload, cfg["label"])
         if r.status_code in (400, 422) and fmt is not None:
             last = r.text[:300]
             continue

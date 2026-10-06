@@ -255,7 +255,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
 .check.wide { grid-column: 1 / -1; }
 /* searchable model picker: it wraps a <select>, which stays as the data holder (value, change, disabled) */
 .picker { position: relative; display: inline-block; }
-.pickbtn { cursor: pointer; text-align: start; min-width: 150px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
+.pickbtn { color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; font: inherit; cursor: pointer; text-align: start; min-width: 150px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
 .pickbtn::after { content: " \25BE"; color: var(--ink-3); }
 .pickbtn:disabled { opacity: .55; cursor: not-allowed; }
 .pickpop { position: absolute; z-index: 40; top: calc(100% + 6px); inset-inline-start: 0; width: min(380px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 8px; }
@@ -1061,7 +1061,7 @@ function setSelect(sel, value) {      // a model typed by hand, or one the list 
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._\-\[\]:/@]{0,119}$/;   // what the server accepts as a model name
 function enhance(select) {
   if (select._picker) return select._picker;
-  const wrap = h("span", "picker"), btn = h("button", "pick pickbtn"), pop = h("div", "pickpop");
+  const wrap = h("span", "picker"), btn = h("button", "pickbtn"), pop = h("div", "pickpop");
   const search = document.createElement("input"), list = h("div", "picklist"), foot = h("div", "pickfoot");
   btn.type = "button"; btn.setAttribute("aria-haspopup", "listbox");
   search.type = "search"; search.placeholder = "חפש דגם או ספק, או הקלד מזהה"; search.dir = "auto"; search.autocomplete = "off";
@@ -1135,7 +1135,7 @@ function buildSettings(providers) {
   ["selModel", "selSup", "selScoutModel"].forEach((id) => enhance($(id)));   // many models: search instead of scrolling
   syncSup(); renderLaneEditor();
 }
-function syncSup() { $("selSup").disabled = !effortOk(settings.model); }  // nothing to supervise without effort levels
+function syncSup() { $("selSup").disabled = !!settings.speed; }  // the supervisor also sizes the scouts, so it stays selectable for models without effort levels
 function applyLive() {
   if (S.state === "running") { post("/api/live", { model: settings.model, supervisor: settings.supervisor }); $("modelNote").hidden = false; }
 }
