@@ -147,5 +147,140 @@
     "seconds": 530
    }
   ]
+ },
+ {
+  "date": "2026-10-06",
+  "puzzle": 1689,
+  "max_guesses": 100,
+  "lanes": [
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": false,
+    "guesses": 55,
+    "rounds": 7,
+    "scout_calls": 21,
+    "supervisor_calls": 0,
+    "seconds": 525
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "medium",
+     "subagent_model": "haiku"
+    },
+    "solved": false,
+    "guesses": 58,
+    "rounds": 7,
+    "scout_calls": 21,
+    "supervisor_calls": 0,
+    "seconds": 525
+   },
+   {
+    "config": {
+     "model": "opus",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": false,
+    "guesses": 50,
+    "rounds": 6,
+    "scout_calls": 18,
+    "supervisor_calls": 0,
+    "seconds": 525
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "high",
+     "subagent_model": "sonnet"
+    },
+    "solved": false,
+    "guesses": 65,
+    "rounds": 8,
+    "scout_calls": 24,
+    "supervisor_calls": 0,
+    "seconds": 525
+   }
+  ]
+ },
+ {
+  "date": "2026-10-08",
+  "puzzle": 1691,
+  "max_guesses": 100,
+  "lanes": [
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": true,
+    "guesses": 20,
+    "rounds": 3,
+    "scout_calls": 6,
+    "supervisor_calls": 0,
+    "seconds": 98
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "medium",
+     "subagent_model": "haiku"
+    },
+    "solved": true,
+    "guesses": 18,
+    "rounds": 3,
+    "scout_calls": 6,
+    "supervisor_calls": 0,
+    "seconds": 76
+   },
+   {
+    "config": {
+     "model": "opus",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": true,
+    "guesses": 27,
+    "rounds": 4,
+    "scout_calls": 9,
+    "supervisor_calls": 0,
+    "seconds": 126
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "high",
+     "subagent_model": "sonnet"
+    },
+    "solved": true,
+    "guesses": 19,
+    "rounds": 3,
+    "scout_calls": 6,
+    "supervisor_calls": 0,
+    "seconds": 65,
+    "first": true
+   }
+  ]
  }
 ]
