@@ -282,5 +282,119 @@
     "first": true
    }
   ]
+ },
+ {
+  "date": "2026-10-09",
+  "puzzle": 1692,
+  "max_guesses": 100,
+  "lanes": [
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": false,
+    "guesses": 30,
+    "rounds": 5,
+    "scout_calls": 12,
+    "supervisor_calls": 0,
+    "seconds": 166
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "medium",
+     "subagent_model": "haiku"
+    },
+    "solved": false,
+    "guesses": 30,
+    "rounds": 5,
+    "scout_calls": 12,
+    "supervisor_calls": 0,
+    "seconds": 166
+   },
+   {
+    "config": {
+     "model": "opus",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "low",
+     "subagent_model": "haiku"
+    },
+    "solved": false,
+    "guesses": 27,
+    "rounds": 5,
+    "scout_calls": 12,
+    "supervisor_calls": 0,
+    "seconds": 166
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "off",
+     "subagents": "3",
+     "effort": "high",
+     "subagent_model": "sonnet"
+    },
+    "solved": false,
+    "guesses": 32,
+    "rounds": 5,
+    "scout_calls": 12,
+    "supervisor_calls": 0,
+    "seconds": 166
+   }
+  ]
+ },
+ {
+  "date": "2026-10-09",
+  "puzzle": 1692,
+  "max_guesses": 100,
+  "lanes": [
+   {
+    "config": {
+     "model": "opus",
+     "supervisor": "haiku",
+     "subagents": "auto"
+    },
+    "solved": true,
+    "guesses": 62,
+    "rounds": 10,
+    "scout_calls": 20,
+    "supervisor_calls": 10,
+    "seconds": 223
+   },
+   {
+    "config": {
+     "model": "sonnet",
+     "supervisor": "haiku",
+     "subagents": "auto"
+    },
+    "solved": true,
+    "guesses": 39,
+    "rounds": 6,
+    "scout_calls": 6,
+    "supervisor_calls": 6,
+    "seconds": 146,
+    "first": true
+   },
+   {
+    "config": {
+     "model": "haiku",
+     "supervisor": "haiku",
+     "subagents": "auto"
+    },
+    "solved": true,
+    "guesses": 48,
+    "rounds": 9,
+    "scout_calls": 17,
+    "supervisor_calls": 9,
+    "seconds": 185
+   }
+  ]
  }
 ]

@@ -9418,6 +9418,1218 @@
    "guess_count": 20,
    "best_similarity": 100.0,
    "best_rank": 1000
+  },
+  {
+   "id": "90fc1f4e1de642e3b1adb1e7d962996c",
+   "puzzle": 1691,
+   "date": "2026-10-08",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 80.01,
+    "tenth": 71.43,
+    "thousandth": 50.12
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Fresh game with no guesses yet, so early broad probing needs little reasoning or help; low effort with one haiku scout matched past fast solves, and I'll add scouts or effort only after stalls.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 9,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "2325bee022f74888aa4ca86768838126",
+   "puzzle": 1691,
+   "date": "2026-10-08",
+   "model": "sonnet",
+   "solved": true,
+   "secret": "חודש",
+   "lessons": [
+    "When the top-ranked words are all members of one closed set (hour, day, week, year), enumerate the remaining members of that set (month) instead of exploring related concepts like future or past.",
+    "A generic abstract word such as זמן (time) is a good early probe, because it scored 54.8 with a rank and gave a field after 5 flat concrete guesses.",
+    "When a hypernym finds the field and siblings then score 72-75, guess the other siblings immediately; probing adjacent concepts (future, speed) cost about 4 guesses here.",
+    "Open exploration with abstract category words (time, place, quantity, emotion) rather than concrete nouns, since concrete nouns scored under 30 and told us nothing."
+   ],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "off",
+    "subagents": "3",
+    "subagent_model": "sonnet",
+    "speed": true,
+    "effort": "high",
+    "speed_profile": "sonnet / high / 3 scouts on sonnet"
+   },
+   "thresholds": {
+    "nearest": 80.01,
+    "tenth": 71.43,
+    "thousandth": 50.12
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "high",
+     "improved": true,
+     "best_after": 54.81,
+     "rank_after": 735,
+     "size": 10,
+     "asked": 10,
+     "seconds": 23.6,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "high",
+     "improved": true,
+     "best_after": 75.03,
+     "rank_after": 997,
+     "size": 10,
+     "asked": 10,
+     "seconds": 15.6,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 5,
+       "sum_sim": 255.38,
+       "ranked": 2
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 6,
+       "sum_sim": 343.72,
+       "ranked": 3
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 6,
+       "sum_sim": 295.08,
+       "ranked": 2
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "sonnet",
+     "effort": "high",
+     "improved": true,
+     "best_after": 100.0,
+     "rank_after": 1000,
+     "size": 2,
+     "asked": 10,
+     "seconds": 12.4,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 174.53,
+       "ranked": 2
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 174.53,
+       "ranked": 2
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 174.53,
+       "ranked": 2
+      }
+     }
+    }
+   ],
+   "supervisor_log": [],
+   "seconds": 52,
+   "summary": "The secret was חודש (month), solved in 22 guesses. The field was time units. The first 5 guesses were concrete nouns (hand, dog, bread, family, sea) and all scored 17-29. The turning point was guess 6, זמן (time), which scored 54.8 at rank 735. שעה (hour) then scored 61.5 at rank 948. The closest ranked words were שנה 72.3 (rank 991), יום 75.0 (997) and שבוע 74.5 (995). Guesses 17-20 wandered into עתיד, עבר, מהירות and דקה, which all scored 37-39 and were wasted. Once the time-unit cluster was clear, the answer was one more sibling unit, so the last few guesses went fast.",
+   "guess_count": 22,
+   "best_similarity": 100.0,
+   "best_rank": 1000
+  },
+  {
+   "id": "29cfafda718541fca8dcfc2bf5b00d77",
+   "puzzle": 1692,
+   "date": "2026-10-09",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.91,
+    "tenth": 67.4,
+    "thousandth": 56.06
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Fresh game with no guesses yet, so early broad probes need little reasoning; low effort with one cheap haiku scout matches the lesson from a past game solved in 6 rounds, and I'll add scouts or effort only after 2 stalled rounds.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 9,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "c8c44c2fd32a48fea9d45be69e999db5",
+   "puzzle": 1692,
+   "date": "2026-10-09",
+   "model": "sonnet",
+   "solved": true,
+   "secret": "חושך",
+   "lessons": [
+    "When the first ranked word is an emotion like פחד (758) but 10+ emotion synonyms give no rank, the secret is probably a cause or setting of that emotion (darkness, danger, night), so switch to causes and scenes after about 3 flat synonyms.",
+    "Mid scores on words tied to a scene (סיוט, בדידות, רעד, around 50-55) are a hint at the situation behind them, so ask what environment they share and guess that environment directly.",
+    "When one emotion cluster stalls, probe basic sensory or physical states (dark, cold, silence, light) as a deliberate off-axis guess.",
+    "Once a near-synonym of the answer ranks very high (994), guess its simpler or alternate spelling and form at once, since the answer is often the plainer word."
+   ],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "sonnet",
+    "subagents": "3",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.91,
+    "tenth": 67.4,
+    "thousandth": 56.06
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 54.98,
+     "rank_after": 0,
+     "size": 10,
+     "asked": 10,
+     "seconds": 14.7,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 7,
+     "asked": 7,
+     "seconds": 13.5,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 5,
+       "sum_sim": 235.61,
+       "ranked": 1
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 143.89,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 192.48,
+       "ranked": 1
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 5,
+     "asked": 5,
+     "seconds": 14.6,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 153.31,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 68.96,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 8,
+     "asked": 8,
+     "seconds": 14.0,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 1,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 5,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 7,
+     "asked": 7,
+     "seconds": 13.9,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 2,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 1,
+       "sum_sim": 39.27,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 94.48,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 6,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 5,
+     "asked": 5,
+     "seconds": 12.0,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 3,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 84.17,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 5,
+       "used": 2,
+       "sum_sim": 88.09,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 4,
+       "used": 3,
+       "sum_sim": 147.94,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 7,
+     "model": "sonnet",
+     "effort": "medium",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 8,
+     "asked": 8,
+     "seconds": 16.5,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 4,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 78.21,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 5,
+       "used": 2,
+       "sum_sim": 88.91,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 123.71,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 8,
+     "model": "sonnet",
+     "effort": "medium",
+     "improved": true,
+     "best_after": 71.02,
+     "rank_after": 994,
+     "size": 6,
+     "asked": 6,
+     "seconds": 13.6,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 5,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 5,
+       "used": 4,
+       "sum_sim": 158.05,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 5,
+       "used": 1,
+       "sum_sim": 50.89,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 4,
+       "used": 2,
+       "sum_sim": 105.21,
+       "ranked": 1
+      }
+     }
+    },
+    {
+     "n": 9,
+     "model": "sonnet",
+     "effort": "medium",
+     "improved": true,
+     "best_after": 100.0,
+     "rank_after": 1000,
+     "size": 1,
+     "asked": 6,
+     "seconds": 9.8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "opus"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 1,
+       "sum_sim": 100.0,
+       "ranked": 1
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 1,
+       "sum_sim": 100.0,
+       "ranked": 1
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Fresh game with no stall yet, so my past lessons say to start with low effort and one cheap haiku scout and add scouts only after stalled rounds.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The last round improved, so I'm lowering the scout count from 3 to 2 and keeping effort low and the scouts on haiku.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": true,
+      "gain": 4.87
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The player improved in both rounds so far, so I'm keeping the current budget: scouts stay high until progress is steady, and effort stays low.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 3,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 3,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Only one stalled round, so keep low effort and 3 haiku scouts, which are already in place, rather than change anything.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 4,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 4,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Two stalled rounds at 59.9 with haiku scouts, so keep 3 scouts and upgrade them to sonnet while leaving effort low, since scouts have helped more than effort.",
+     "stalled": 2,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "sonnet",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 5,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 5,
+     "previous": "low",
+     "effort": "medium",
+     "reason": "Stalled 3 rounds at 59.9 (below the 1000th-nearest score of 56.06 is passed, but rank is still low), so I raise effort one level mildly and keep 3 sonnet scouts, since the sonnet switch has had only one round to work.",
+     "stalled": 3,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "sonnet",
+     "previous_model": "sonnet",
+     "outcome": {
+      "round": 7,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 6,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "Stalled 4 rounds, so I'm keeping 3 sonnet scouts and medium effort, which I raised last round and haven't seen results from yet.",
+     "stalled": 4,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "sonnet",
+     "previous_model": "sonnet",
+     "outcome": {
+      "round": 8,
+      "improved": true,
+      "gain": 11.17
+     }
+    },
+    {
+     "after_round": 7,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "After 4+ stalled rounds with 3 sonnet scouts, trying a stronger scout model per the rule, while holding effort since raising it rarely helped.",
+     "stalled": 5,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "opus",
+     "previous_model": "sonnet",
+     "outcome": {
+      "round": 9,
+      "improved": true,
+      "gain": 28.98
+     }
+    },
+    {
+     "after_round": 8,
+     "previous": "medium",
+     "effort": "low",
+     "reason": "A big jump to 71.0 just happened after a long stall, so I'm lowering effort and moving scouts from opus back to sonnet, but keeping 3 scouts until progress is confirmed.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "sonnet",
+     "previous_model": "opus",
+     "outcome": null
+    }
+   ],
+   "seconds": 123,
+   "summary": "The secret was חושך (darkness), solved in 57 guesses. Early abstract probes (זמן 38.7, אדם 36.5) were flat. רגש (55.0) and אהבה (55.2) pointed to emotion, and פחד (fear) gave the first rank (758) at guess 13. The next ~38 guesses were wasted on emotion near-synonyms (חרדה, אימה, בהלה, פאניקה, טראומה and others), all scoring 30-55 with no rank. The turning point was סיוט (54.8), בדידות (52.5) and רעד (50.4), which suggested a night or dark setting rather than an emotion. חשיכה (71.0, rank 994) at guess 52 was the near-synonym that led to חושך. Fear was only a side-effect association of the real concept, which was a physical or sensory state.",
+   "supervisor_lessons_written": [
+    "Self-assessment of a game: effort about right, scouts too many.",
+    "Using 3 haiku scouts from round 1 was wasteful: they stalled for rounds 3-7 anyway, so start with 0-1 scouts and add more only after a stall.",
+    "Moving from haiku to sonnet scouts and raising effort to medium did nothing for several rounds; the breakthrough came with the opus scouts, so after a long stall on 3 small-model scouts, upgrade the scout model sooner than raising effort.",
+    "After the solve-level jump in round 9, the decision to drop to low effort and sonnet came too late to matter; the lesson is to hold effort low through plateaus and spend on scout model strength instead."
+   ],
+   "guess_count": 57,
+   "best_similarity": 100.0,
+   "best_rank": 1000
+  },
+  {
+   "id": "67df4f71f7234a3ba9e10a348d18be1e",
+   "puzzle": 1692,
+   "date": "2026-10-09",
+   "model": "sonnet",
+   "solved": true,
+   "secret": "חושך",
+   "lessons": [
+    "When a ranked emotion word (like פחד) has many synonyms scoring 50-55 with no rank, switch to its cause, setting or trigger (dark, night, danger, threat) after about 3 near-synonyms instead of enumerating the emotion's synonyms.",
+    "Treat hints from odd mid-scoring words (סיוט, זיעה, רעד at 50-55) as pointers to a shared context, such as night or darkness, and test that context directly.",
+    "A high score on a broad emotion probe (אהבה 55) can lead you into the wrong sub-field. Check whether sensory or physical-world concepts (light, dark, cold, sound) are also close before committing to the emotional field.",
+    "After a first rank, probe the basic elemental or perceptual concepts connected to it (light/dark, silence/noise) early. A single guess on these could have saved about 30 guesses here."
+   ],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "sonnet",
+    "subagents": "3",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.91,
+    "tenth": 67.4,
+    "thousandth": 56.06
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 55.2,
+     "rank_after": 0,
+     "size": 10,
+     "asked": 10,
+     "seconds": 12.1,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 55.2,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 12.7,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 137.05,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 5,
+       "sum_sim": 137.49,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 6,
+     "asked": 6,
+     "seconds": 12.8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 1,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 145.7,
+       "ranked": 1
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 135.23,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 100.17,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 6,
+     "asked": 6,
+     "seconds": 14.3,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 7,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 128.2,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 5,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 6,
+     "asked": 6,
+     "seconds": 16.0,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 1,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 80.42,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 1,
+       "sum_sim": 50.54,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 6,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 7,
+     "asked": 8,
+     "seconds": 16.5,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 2,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 106.13,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 1,
+       "sum_sim": 32.77,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 7,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 59.85,
+     "rank_after": 758,
+     "size": 6,
+     "asked": 6,
+     "seconds": 13.3,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 3,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 89.49,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 5,
+       "used": 4,
+       "sum_sim": 165.33,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 5,
+       "used": 3,
+       "sum_sim": 134.26,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 8,
+     "model": "sonnet",
+     "effort": "medium",
+     "improved": true,
+     "best_after": 100.0,
+     "rank_after": 1000,
+     "size": 6,
+     "asked": 6,
+     "seconds": 20.4,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 4,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "sonnet"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 5,
+       "used": 4,
+       "sum_sim": 253.4,
+       "ranked": 1
+      },
+      "neighbour-scout": {
+       "proposed": 3,
+       "used": 1,
+       "sum_sim": 39.93,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 4,
+       "used": 2,
+       "sum_sim": 93.4,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Fresh game: early exploration needs little thinking, and past lessons show low effort with one haiku scout is enough until a stall appears.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The best score improved last round, so I'm keeping effort low and cutting to 2 cheap haiku scouts, since this is still early exploration.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Only one stalled round and best 55.2 is near the 1000th reference, so keep low effort with 3 haiku scouts rather than changing anything.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 3,
+      "improved": true,
+      "gain": 4.65
+     }
+    },
+    {
+     "after_round": 3,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The player just improved, so I'm keeping the same budget: lessons say to keep scouts high until 2-3 rounds of strong progress.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 4,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 4,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Only a one-round stall and the best similarity is still below the 1000th reference, so I'm keeping low effort with 3 haiku scouts, which has alternated between progress and no gain.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 5,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 5,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Two stalled rounds with 3 haiku scouts, so I'm moving the scouts to a stronger model and keeping effort low, since scouts have helped more than effort.",
+     "stalled": 2,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "sonnet",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 6,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 6,
+     "previous": "low",
+     "effort": "medium",
+     "reason": "Stalled 3 rounds below the 1000th reference score, so I'm keeping 3 sonnet scouts (the new switch hasn't had time to show a result) and raising effort one level for the mild stall.",
+     "stalled": 3,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "sonnet",
+     "previous_model": "sonnet",
+     "outcome": {
+      "round": 8,
+      "improved": true,
+      "gain": 40.15
+     }
+    },
+    {
+     "after_round": 7,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "Four stalled rounds with 3 sonnet scouts, so switch scouts to a stronger model and keep effort at medium since the last raise is still untested.",
+     "stalled": 4,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "opus",
+     "previous_model": "sonnet",
+     "outcome": null
+    }
+   ],
+   "seconds": 118,
+   "summary": "The secret word was חושך (darkness), solved in 55 guesses. Early concrete probes (מקום, מספר, כסף, בית) scored under 30, and אהבה (55.2) and רגש (55.0) pulled the search into the emotion field. The only rank came at guess 21: פחד (fear) at 59.9, rank 758. About 30 guesses were then spent on fear synonyms and neighbours (חרדה, אימה, מורא, יראה, סיוט, רעד, אימים), all scoring 40-55 with no rank. Fear was a nearby field, not the answer: the secret was the setting or cause of fear. סיוט (54.8), רעד (50.4) and זיעה (51.7) hinted at nightmare and night but were not followed up. The final guess חושך came late, after the emotion axis was exhausted.",
+   "supervisor_lessons_written": [
+    "Self-assessment of a game: effort about right, scouts about right.",
+    "Starting with 3 haiku scouts from round 1 was probably wasteful, since the first rounds improved anyway. A cheaper start would have worked.",
+    "Four rounds stalled at 59.9 with haiku scouts, so haiku scouts added little. After 2 stalled rounds with 3 scouts, I should have moved to a stronger scout model immediately, not after 5 stalls.",
+    "The solve came when the scout model was stronger and effort rose to medium, and I changed both together. So I can't tell which one mattered, and next time I should change one at a time on a plateau."
+   ],
+   "guess_count": 55,
+   "best_similarity": 100.0,
+   "best_rank": 1000
   }
  ],
  "lessons": [],
@@ -9432,6 +10644,13 @@
   "Self-assessment of a game: effort about right, scouts too few.",
   "I waited until round 8 to go to 3 scouts after a plateau at 64.0 with 1 scout, so after 2 stalled rounds at similarity below 65 I should switch to 3 scouts immediately.",
   "The solve came in the first round with 3 scouts, while the experiment rounds at medium and high effort with 1 scout gave little: high effort improved only from 61.9 to 64.0 and medium gave no gain. So scouts, especially the triangulator, outperformed effort here.",
-  "Low effort with 1 haiku scout was fine for early exploration, so don't raise effort during early improvements. When the stall comes, add scouts before adding effort."
+  "Low effort with 1 haiku scout was fine for early exploration, so don't raise effort during early improvements. When the stall comes, add scouts before adding effort.",
+  "Self-assessment of a game: effort about right, scouts too many.",
+  "Using 3 haiku scouts from round 1 was wasteful: they stalled for rounds 3-7 anyway, so start with 0-1 scouts and add more only after a stall.",
+  "Moving from haiku to sonnet scouts and raising effort to medium did nothing for several rounds; the breakthrough came with the opus scouts, so after a long stall on 3 small-model scouts, upgrade the scout model sooner than raising effort.",
+  "After the solve-level jump in round 9, the decision to drop to low effort and sonnet came too late to matter; the lesson is to hold effort low through plateaus and spend on scout model strength instead.",
+  "Starting with 3 haiku scouts from round 1 was probably wasteful, since the first rounds improved anyway. A cheaper start would have worked.",
+  "Four rounds stalled at 59.9 with haiku scouts, so haiku scouts added little. After 2 stalled rounds with 3 scouts, I should have moved to a stronger scout model immediately, not after 5 stalls.",
+  "The solve came when the scout model was stronger and effort rose to medium, and I changed both together. So I can't tell which one mattered, and next time I should change one at a time on a plateau."
  ]
 }
