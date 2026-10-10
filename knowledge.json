@@ -29,7 +29,8 @@
   "קפאתי",
   "נשברתי",
   "הסתבכתי",
-  "נחרדתי"
+  "נחרדתי",
+  "ראש ממשלה"
  ],
  "games": [
   {
@@ -10630,6 +10631,360 @@
    "guess_count": 55,
    "best_similarity": 100.0,
    "best_rank": 1000
+  },
+  {
+   "id": "cc623166b3b84c0d88298353d0f7792b",
+   "puzzle": 1693,
+   "date": "2026-10-10",
+   "model": "sonnet",
+   "solved": true,
+   "secret": "הפגנה",
+   "lessons": [
+    "When a ranked word is an institution or actor (ממשלה, אופוזיציה), switch early to the actions people take toward it (protest, strike, vote, rally) instead of listing more institutions.",
+    "If many same-field guesses score 40-48 with no rank, the secret is probably an event or activity within that field, so probe event or verb words, not more nouns for structures.",
+    "A rank on an opposition or opposing-side word (אופוזיציה 858) is a signal to guess the conflict or resistance concepts around it (מחאה, מרד, שביתה) right away."
+   ],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 81.63,
+    "tenth": 71.55,
+    "thousandth": 50.25
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 38.9,
+     "rank_after": 0,
+     "size": 10,
+     "asked": 10,
+     "seconds": 13.0,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 51.81,
+     "rank_after": 322,
+     "size": 10,
+     "asked": 10,
+     "seconds": 13.3,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 55.9,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 51.81,
+     "rank_after": 322,
+     "size": 8,
+     "asked": 8,
+     "seconds": 17.7,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": false,
+     "best_after": 51.81,
+     "rank_after": 322,
+     "size": 7,
+     "asked": 8,
+     "seconds": 13.8,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 1,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 5,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 57.88,
+     "rank_after": 858,
+     "size": 8,
+     "asked": 8,
+     "seconds": 13.9,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 2,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 6,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 77.58,
+     "rank_after": 996,
+     "size": 6,
+     "asked": 6,
+     "seconds": 12.3,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 170.23,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 138.84,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 7,
+     "model": "sonnet",
+     "effort": "low",
+     "improved": true,
+     "best_after": 100.0,
+     "rank_after": 1000,
+     "size": 1,
+     "asked": 5,
+     "seconds": 11.4,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 0,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 5,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early broad probes need little thinking, and my lessons say starting with 3 haiku scouts was wasteful; one cheap haiku scout gives some help without the cost, and I can add scouts or raise effort only after a stall.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Still early exploration: the best score improved in the last round (38.9) with no stall, so effort stays low and the single haiku scout stays. Raising effort or scouts now would spend budget without a plateau to justify it.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": true,
+      "gain": 12.91
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Two rounds in, best similarity improved both rounds (38.9 to 51.8) and rank is 322, so the player is still in broad exploration with no stall. Keep effort low and one haiku scout, which has worked well early, and save spending until a plateau appears.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 3,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 3,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Keep the current budget: only one round without improvement, and the best score (51.8) is already above the 1000th-nearest reference (50.25), so this is still early exploration. Low effort with one haiku scout has worked so far, and the lessons say to add scouts only after a real stall of about two rounds.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 4,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 4,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Two rounds without a new best (stuck at 51.8) is the stall point my lessons flag, so I'm moving to all 3 scouts now. I'm keeping effort at low and the model at haiku so only one thing changes; the record shows 3 haiku scouts (40%) and 3 sonnet scouts (41%) did about the same, so haiku is the cheaper choice.",
+     "stalled": 2,
+     "has_effort": true,
+     "subagents": 3,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 5,
+      "improved": true,
+      "gain": 6.07
+     }
+    },
+    {
+     "after_round": 5,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Round 5 improved the best similarity (51.8 to 57.9) and nothing has stalled yet, so I'm cutting scouts from 3 to 1 on haiku to save cost, and holding effort at low since raising it hasn't clearly helped here. I'll move to stronger scouts or higher effort only if 2 or more rounds stall.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 6,
+      "improved": true,
+      "gain": 19.7
+     }
+    },
+    {
+     "after_round": 6,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The player improved in the last round (57.9 to 77.6) and has improved in 3 of the last 4 rounds, so keep effort low and the single cheap haiku scout unchanged; no stall to respond to yet.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 7,
+      "improved": true,
+      "gain": 22.42
+     }
+    }
+   ],
+   "seconds": 95,
+   "summary": "The secret word was הפגנה (demonstration/protest), solved in 50 guesses. It belongs to the politics and public-action field. The first 13 guesses were broad, concrete or generic probes (מקום, כסף, מים, אור, מחשב and similar) and all scored under 40. The first rank came at guess 14 with ממשלה (51.8, rank 322). Then about 35 guesses went on government and politics words: חוק, מפלגה, כנסת, קואליציה, משטר, סיעה and others, all scoring 40-48 with no rank. אופוזיציה (57.9, rank 858) was the first strong hint of conflict against power. The turning point was מחאה (77.6, rank 996), and הפגנה followed immediately. The long middle was wasted circling institutions (parliament, parties, regime) when the secret was a public action by citizens against them.",
+   "supervisor_lessons_written": [
+    "Self-assessment of a game: effort about right, scouts about right.",
+    "After two rounds stalled at 51.8 with one haiku scout (rounds 3-4), moving to 3 scouts right away would have saved a round, since the 3-scout round produced the biggest jump of the game (57.9 to 77.6).",
+    "Once a 3-scout round had found the right neighbourhood, dropping back to 1 scout in the next round still produced the solve at 100.0, so the extra scouts are most useful for the one round that breaks a plateau, not for the whole game."
+   ],
+   "guess_count": 50,
+   "best_similarity": 100.0,
+   "best_rank": 1000
   }
  ],
  "lessons": [],
@@ -10651,6 +11006,8 @@
   "After the solve-level jump in round 9, the decision to drop to low effort and sonnet came too late to matter; the lesson is to hold effort low through plateaus and spend on scout model strength instead.",
   "Starting with 3 haiku scouts from round 1 was probably wasteful, since the first rounds improved anyway. A cheaper start would have worked.",
   "Four rounds stalled at 59.9 with haiku scouts, so haiku scouts added little. After 2 stalled rounds with 3 scouts, I should have moved to a stronger scout model immediately, not after 5 stalls.",
-  "The solve came when the scout model was stronger and effort rose to medium, and I changed both together. So I can't tell which one mattered, and next time I should change one at a time on a plateau."
+  "The solve came when the scout model was stronger and effort rose to medium, and I changed both together. So I can't tell which one mattered, and next time I should change one at a time on a plateau.",
+  "After two rounds stalled at 51.8 with one haiku scout (rounds 3-4), moving to 3 scouts right away would have saved a round, since the 3-scout round produced the biggest jump of the game (57.9 to 77.6).",
+  "Once a 3-scout round had found the right neighbourhood, dropping back to 1 scout in the next round still produced the solve at 100.0, so the extra scouts are most useful for the one round that breaks a plateau, not for the whole game."
  ]
 }
