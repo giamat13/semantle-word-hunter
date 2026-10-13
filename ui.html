@@ -342,7 +342,7 @@ ul.lessons li::before { content: "•"; color: var(--accent); font-weight: 700; 
       <div class="field wide"><span class="lbl">חיבורים</span><div class="provs" id="providers"></div>
         <div class="hint">לכל ספק שתי דרכים: מפתח API, או ה-CLI הרשמי שלו כשאתה מחובר עם המנוי (בלי מפתח). שרתים מקומיים לא צריכים כלום. דגם מוקלד ידנית כ-ספק:דגם.</div></div>
     </div>
-    <p class="note">המפקח בודק את ההתקדמות במקביל ויכול להעלות או להוריד את רמת המאמץ של המודל. הוא גם בוחר את הרמה ההתחלתית. כשהמפקח כבוי, המודל רץ ברמה בינונית לאורך כל המשחק. למודלים בלי רמות מאמץ (Haiku, רוב המודלים המקומיים) המפקח משנה רק את תקציב הסיירים. חשיבה מורחבת פועלת תמיד.</p>
+    <p class="note">המפקח בודק את ההתקדמות במקביל ויכול להעלות או להוריד את רמת המאמץ של המודל. הוא גם בוחר את הרמה ההתחלתית. כשהמפקח כבוי, המודל רץ ברמה בינונית לאורך כל המשחק. למודלים בלי רמות מאמץ (Haiku 4.x, רוב המודלים המקומיים) המפקח משנה רק את תקציב הסיירים. חשיבה מורחבת פועלת תמיד.</p>
     <div><button class="btn primary" id="btnStart">התחל לפתור</button></div>
   </section>
 
@@ -1034,8 +1034,8 @@ let modelOptions = [];
 let speedProfiles = [];
 const SCOUT_LABEL = { "field-scout": "סייר תחומים", "neighbour-scout": "סייר שכנים", "triangulator": "משלש" };
 const KNOWN_PROVIDERS = ["openai", "google", "ollama", "lmstudio", "openrouter", "groq", "mistral", "deepseek", "xai", "together", "custom"];
-const effortOk = (m) => {          // mirrors the server: only Claude (except Haiku) and OpenAI reasoning models have effort levels
-  if (/haiku/i.test(m)) return false;
+const effortOk = (m) => {          // mirrors the server: only Claude (except Haiku 4.x) and OpenAI reasoning models have effort levels
+  if (/haiku-4/i.test(m)) return false;
   const [prov, ...rest] = m.split(":");
   if (!rest.length || !KNOWN_PROVIDERS.includes(prov)) return true;
   return prov === "openai" && /^(o\d|gpt-5)/i.test(rest.join(":"));

@@ -10985,6 +10985,1100 @@
    "guess_count": 50,
    "best_similarity": 100.0,
    "best_rank": 1000
+  },
+  {
+   "id": "f054e067c05444d1a349b5a13048f133",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early broad probes need little thinking, and my past lessons say starting with 3 haiku scouts wastes budget, so one cheap haiku scout is enough until a stall appears, when I'll add scouts before raising effort.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 8,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "cdb08b24d34d4bb29d4417c66f0fad71",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "haiku",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "haiku",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "haiku",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "haiku",
+     "effort": null,
+     "improved": true,
+     "best_after": 30.04,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 12.1,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 335,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "haiku",
+     "effort": null,
+     "improved": true,
+     "best_after": 39.71,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 15.2,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 513,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 6,
+       "sum_sim": 157.96,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "haiku",
+     "effort": null,
+     "improved": true,
+     "best_after": 50.68,
+     "rank_after": 0,
+     "size": 7,
+     "asked": 7,
+     "seconds": 15.2,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 428,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 6,
+       "sum_sim": 153.52,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "haiku",
+     "effort": null,
+     "improved": false,
+     "best_after": 50.68,
+     "rank_after": 0,
+     "size": 5,
+     "asked": 5,
+     "seconds": 15.6,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 254,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 97.19,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 5,
+     "model": "haiku",
+     "effort": null,
+     "improved": false,
+     "best_after": 50.68,
+     "rank_after": 0,
+     "size": 7,
+     "asked": 7,
+     "seconds": 14.4,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 1,
+     "thinking_tokens": 412,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 71.63,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 6,
+     "model": "haiku",
+     "effort": null,
+     "improved": false,
+     "best_after": 50.68,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 18.7,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 2,
+     "thinking_tokens": 519,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 99.85,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 7,
+     "model": "haiku",
+     "effort": null,
+     "improved": false,
+     "best_after": 50.68,
+     "rank_after": 0,
+     "size": 6,
+     "asked": 6,
+     "seconds": 16.4,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 3,
+     "thinking_tokens": 378,
+     "budget": {
+      "subagents": 3,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      },
+      "neighbour-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 73.74,
+       "ranked": 0
+      },
+      "triangulator": {
+       "proposed": 6,
+       "used": 5,
+       "sum_sim": 159.54,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "medium",
+     "reason": "Early rounds are broad probes with no stall yet, so low effort and one haiku scout is enough; the record shows low effort and 0-1 scouts already improve about half of rounds, and past lessons say starting with 3 scouts wasted budget.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "Round 1 already improved (best 30.0) and we are still in early broad exploration, where low effort with one haiku scout worked before; I'll drop medium to low to save budget and keep the scout in case a plateau appears.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": true,
+      "gain": 9.67
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "The player improved in both rounds so far, and early broad exploration needs little thinking, so I'll drop effort from medium to low and keep one cheap haiku scout. I'll raise effort or scouts only if the best score stalls for 2+ rounds.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 3,
+      "improved": true,
+      "gain": 10.97
+     }
+    },
+    {
+     "after_round": 3,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "The player improved in every round so far (30.0 to 39.7 to 50.7) with no stall, so I'm lowering effort from medium to low to save spend, since medium has shown no advantage over low. Keeping one cheap haiku scout for broad exploration is enough while progress continues.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 4,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 4,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "Only one round has stalled at 50.7 (below the 2-round trigger for more scouts and the 3-round trigger for more effort), and the game is still early, so I hold effort at medium and keep the single haiku scout rather than overspend.",
+     "stalled": 1,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 5,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 5,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "The best score has been flat at 50.7 for 2 rounds, which is the stall point where the lessons say to add all 3 scouts; I'm also moving the scouts to sonnet because small-model scouts have stalled, but keeping effort at medium so only the scout budget and model change this round.",
+     "stalled": 2,
+     "has_effort": false,
+     "subagents": 3,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 6,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 6,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "The best score has been stuck at 50.7 for 3 rounds, which meets the stall threshold, so I raise effort one level from medium to high. I keep all 3 scouts because the plateau needs the triangulator's jumps. The scout model is fixed at haiku, so effort is the only remaining lever.",
+     "stalled": 3,
+     "has_effort": false,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 7,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 7,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "The best score has been stuck at 50.7 for 4 rounds, so this is a long stall; the scout model is fixed at haiku and the scout count is already at the maximum of 3, so the one lever left is effort, and I'm raising it two levels from medium to high (max waits until 6+ stalled rounds).",
+     "stalled": 4,
+     "has_effort": false,
+     "subagents": 3,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 131,
+   "guess_count": 55,
+   "best_similarity": 50.68,
+   "best_rank": null
+  },
+  {
+   "id": "b8c18e3676834a4caf87d2bf919c644b",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early exploration needs broad probes, not deep reasoning. Low effort and one haiku scout matched the record (1 haiku scout improved 57% of rounds, and my lessons say 3 haiku scouts from round 1 was wasteful). Add scouts or effort only after a stall of 2+ rounds, and step the scout model up before raising effort.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 8,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "1abf9fc95cb24270bee29ad254812246",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "haiku",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "haiku",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "haiku",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "haiku",
+     "effort": null,
+     "improved": true,
+     "best_after": 22.1,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 12.1,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 314,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "haiku",
+     "effort": null,
+     "improved": true,
+     "best_after": 25.77,
+     "rank_after": 0,
+     "size": 7,
+     "asked": 7,
+     "seconds": 13.2,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 431,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 86.41,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "medium",
+     "reason": "Early broad probes need little help, and the record shows one haiku scout does about as well as more (57% improved versus 42% for three). Start with one scout and low effort, add scouts only after a stall of 2 or more rounds, and do not raise effort early.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "Round 1 is early broad exploration with no stall, so keep it cheap: low effort and one haiku scout, adding scouts only if the best score stalls.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": true,
+      "gain": 3.67
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "The player improved in both rounds with no stall, so this is early exploration: drop effort from medium to low (medium showed no better results in the record) and keep the single cheap haiku scout for broad probes.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 40,
+   "guess_count": 23,
+   "best_similarity": 39.71,
+   "best_rank": null
+  },
+  {
+   "id": "2a929940cb6845d792382f291a51c45c",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early broad probes need little thinking, and past games show 1 haiku scout at low effort improved 57% of rounds while 3 haiku scouts from round 1 were wasteful. Start at low effort with one haiku scout, and add scouts or a stronger model only after a stall of 2+ rounds.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 9,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "b15b4af514254a99b93a57a5da046f1e",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "claude-haiku-5-5",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "claude-haiku-5-5",
+    "supervisor": "claude-haiku-5-5",
+    "subagents": "auto",
+    "subagent_model": "claude-haiku-5-5",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "claude-haiku-5-5",
+     "effort": null,
+     "improved": true,
+     "best_after": 34.22,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 11.0,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 256,
+     "budget": {
+      "subagents": 1,
+      "model": "claude-haiku-5-5"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "claude-haiku-5-5",
+     "effort": null,
+     "improved": true,
+     "best_after": 39.71,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 13.5,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 490,
+     "budget": {
+      "subagents": 1,
+      "model": "claude-haiku-5-5"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 2,
+       "sum_sim": 52.77,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "claude-haiku-5-5",
+     "effort": null,
+     "improved": false,
+     "best_after": 39.71,
+     "rank_after": 0,
+     "size": 0,
+     "asked": 8,
+     "seconds": 12.2,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 537,
+     "budget": {
+      "subagents": 1,
+      "model": "claude-haiku-5-5"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 0,
+       "sum_sim": 0,
+       "ranked": 0
+      }
+     }
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "medium",
+     "reason": "Opening rounds are broad exploration, which needs little thinking, and the player's model has no effort levels so effort is moot. One haiku-class scout is enough. My lessons say starting with 3 scouts wasted calls, so I'll hold at 1 and add scouts only after a stall.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "claude-haiku-5-5",
+     "previous_model": "claude-haiku-5-5",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "Round 1 improved (best 34.2, nothing stalled), so this is still early exploration where the record and my own lessons favor low effort and one small-model scout. Keeping one haiku scout costs little and holds the current setup; I'll add scouts or a stronger model only after 2 stalled rounds.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "claude-haiku-5-5",
+     "previous_model": "claude-haiku-5-5",
+     "outcome": {
+      "round": 2,
+      "improved": true,
+      "gain": 5.49
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "medium",
+     "effort": "medium",
+     "reason": "The player improved in both rounds so far with no stall, so effort can drop from medium to low. One small scout is enough for broad early exploration, and the record shows haiku scouts working about as well as anything here at a fraction of the cost. I'll add scouts or effort only after a stall of 2+ rounds.",
+     "stalled": 0,
+     "has_effort": false,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "claude-haiku-5-5",
+     "previous_model": "claude-haiku-5-5",
+     "outcome": {
+      "round": 3,
+      "improved": false,
+      "gain": 0.0
+     }
+    }
+   ],
+   "seconds": 37,
+   "guess_count": 16,
+   "best_similarity": 39.71,
+   "best_rank": null
+  },
+  {
+   "id": "55e9c9d42c9e4cca8a19e0e603c07be7",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "sonnet",
+   "solved": false,
+   "secret": null,
+   "lessons": [],
+   "config": {
+    "model": "sonnet",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "auto",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early broad probes need little thinking, and the record shows 1 haiku scout improved 57% of rounds versus 42% for 3 haiku scouts, while my lessons say starting with 3 scouts was wasteful. I'll hold effort at low and add scouts or a stronger scout model only if the player stalls.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": null
+    }
+   ],
+   "seconds": 8,
+   "guess_count": 0,
+   "best_similarity": null,
+   "best_rank": null
+  },
+  {
+   "id": "0c1bc1f43f6e42a1a25d1563be49c975",
+   "puzzle": 1696,
+   "date": "2026-10-13",
+   "model": "haiku",
+   "solved": true,
+   "secret": "מזבח",
+   "lessons": [
+    "When a deity or sky word (אלוהים, שמיים) scores above 45 and no rank appears, switch to ritual objects and acts inside that sacred setting (altar, offering, sacrifice) rather than more deity synonyms.",
+    "When a sacred-setting word such as מקדש (temple) ranks very high, guess the furniture or equipment of that setting next, since the answer is often a small object inside the place rather than the place itself.",
+    "Do not spend several early guesses on concrete everyday nouns and emotions in a row; after two batches that stay under 35, move to a different abstract axis such as religion, law, or ritual."
+   ],
+   "config": {
+    "model": "haiku",
+    "supervisor": "haiku",
+    "subagents": "auto",
+    "subagent_model": "haiku",
+    "speed": false,
+    "effort": null,
+    "speed_profile": null
+   },
+   "thresholds": {
+    "nearest": 78.27,
+    "tenth": 73.72,
+    "thousandth": 56.98
+   },
+   "rounds": [
+    {
+     "n": 1,
+     "model": "haiku",
+     "effort": "low",
+     "improved": true,
+     "best_after": 30.04,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 11.6,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 270,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 2,
+     "model": "haiku",
+     "effort": "low",
+     "improved": true,
+     "best_after": 39.71,
+     "rank_after": 0,
+     "size": 8,
+     "asked": 8,
+     "seconds": 14.9,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 336,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 4,
+       "sum_sim": 118.25,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 3,
+     "model": "haiku",
+     "effort": "low",
+     "improved": true,
+     "best_after": 54.18,
+     "rank_after": 0,
+     "size": 7,
+     "asked": 7,
+     "seconds": 14.3,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 277,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 3,
+       "sum_sim": 96.88,
+       "ranked": 0
+      }
+     }
+    },
+    {
+     "n": 4,
+     "model": "haiku",
+     "effort": "low",
+     "improved": true,
+     "best_after": 75.31,
+     "rank_after": 994,
+     "size": 6,
+     "asked": 6,
+     "seconds": 13.3,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 332,
+     "budget": {
+      "subagents": 1,
+      "model": "haiku"
+     },
+     "scouts": {
+      "field-scout": {
+       "proposed": 6,
+       "used": 6,
+       "sum_sim": 321.82,
+       "ranked": 3
+      }
+     }
+    },
+    {
+     "n": 5,
+     "model": "haiku",
+     "effort": "low",
+     "improved": false,
+     "best_after": 75.31,
+     "rank_after": 994,
+     "size": 5,
+     "asked": 5,
+     "seconds": 7.0,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 0,
+     "thinking_tokens": 260,
+     "budget": {
+      "subagents": 0,
+      "model": "haiku"
+     },
+     "scouts": {}
+    },
+    {
+     "n": 6,
+     "model": "haiku",
+     "effort": "low",
+     "improved": true,
+     "best_after": 100.0,
+     "rank_after": 1000,
+     "size": 1,
+     "asked": 4,
+     "seconds": 6.2,
+     "experiment": false,
+     "chosen_effort": null,
+     "stalled_before": 1,
+     "thinking_tokens": 218,
+     "budget": {
+      "subagents": 0,
+      "model": "haiku"
+     },
+     "scouts": {}
+    }
+   ],
+   "supervisor_log": [
+    {
+     "after_round": 0,
+     "previous": "auto",
+     "effort": "low",
+     "reason": "Early broad probes need little thinking, and past games show low effort with one haiku scout improved 57% of rounds without the overspend of starting with three scouts, so I'll hold effort low and add scouts only if a stall appears.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 3,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 1,
+      "improved": true,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 1,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Early exploration with a clear lead (כסף at 30.0, no stall yet), so keep effort low and one cheap haiku scout; escalate scouts only if stalls begin.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 2,
+      "improved": true,
+      "gain": 9.67
+     }
+    },
+    {
+     "after_round": 2,
+     "previous": "low",
+     "effort": "low",
+     "reason": "Two rounds in and the best score has improved both times, so the player is on a good path. Keep effort low and the single haiku scout, and only escalate if a stall of 2+ rounds appears.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 3,
+      "improved": true,
+      "gain": 14.47
+     }
+    },
+    {
+     "after_round": 3,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The player has improved every round (30.0, 39.7, 54.2) with no stall, so I'll keep effort low and drop the scout to zero to save cost, adding scouts only if a stall appears.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 0,
+     "previous_subagents": 1,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 4,
+      "improved": true,
+      "gain": 21.13
+     }
+    },
+    {
+     "after_round": 4,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The player has improved every round (30.0 to 75.3) with no stall, so keep effort low and stay at 0 scouts; spend only if a plateau appears.",
+     "stalled": 0,
+     "has_effort": true,
+     "subagents": 0,
+     "previous_subagents": 0,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 5,
+      "improved": false,
+      "gain": 0.0
+     }
+    },
+    {
+     "after_round": 5,
+     "previous": "low",
+     "effort": "low",
+     "reason": "The player has improved for four rounds and has only stalled for one, so effort stays at low and the stall does not yet justify more. Best similarity is 75.3, just under the nearest reference at 78.27, so one sonnet scout is a cheap test of a stronger neighbourhood guess without committing to three scouts before the second stalled round.",
+     "stalled": 1,
+     "has_effort": true,
+     "subagents": 1,
+     "previous_subagents": 0,
+     "scout_model": "haiku",
+     "previous_model": "haiku",
+     "outcome": {
+      "round": 6,
+      "improved": true,
+      "gain": 24.69
+     }
+    }
+   ],
+   "seconds": 67,
+   "summary": "The secret word was מזבח (altar), solved in 35 guesses. It belongs to the religious and sacred-worship field. The first 22 guesses were broad probes of time, war, light, love, body, and home, and most scored under 35. Deity and sky words gave the first real signal: אלוהים scored 54.2 and שמיים 48.1. The turning point came with a run of sacred-field words: מלאך (61.0, rank 557), תפילה (61.3, rank 581), קודש (65.2, rank 840), and מקדש (75.3, rank 994). Guessing the answer required recognizing that the sacred setting held a specific ritual object, not the temple itself. Wasted effort went to concrete categories and to emotion and family words that never ranked.",
+   "supervisor_lessons_written": [
+    "Self-assessment of a game: effort about right, scouts about right.",
+    "Dropping to 0 scouts in round 5 right after the best score reached 75.3 produced the only stall of the game, so keep at least one scout once the guesses are in the high-70s rather than cutting to zero.",
+    "A single flat round (round 5) was too short a stall to justify any change, and the solve came one round later with effort still low, so effort did not need to rise in this game."
+   ],
+   "guess_count": 35,
+   "best_similarity": 100.0,
+   "best_rank": 1000
   }
  ],
  "lessons": [],
@@ -11008,6 +12102,8 @@
   "Four rounds stalled at 59.9 with haiku scouts, so haiku scouts added little. After 2 stalled rounds with 3 scouts, I should have moved to a stronger scout model immediately, not after 5 stalls.",
   "The solve came when the scout model was stronger and effort rose to medium, and I changed both together. So I can't tell which one mattered, and next time I should change one at a time on a plateau.",
   "After two rounds stalled at 51.8 with one haiku scout (rounds 3-4), moving to 3 scouts right away would have saved a round, since the 3-scout round produced the biggest jump of the game (57.9 to 77.6).",
-  "Once a 3-scout round had found the right neighbourhood, dropping back to 1 scout in the next round still produced the solve at 100.0, so the extra scouts are most useful for the one round that breaks a plateau, not for the whole game."
+  "Once a 3-scout round had found the right neighbourhood, dropping back to 1 scout in the next round still produced the solve at 100.0, so the extra scouts are most useful for the one round that breaks a plateau, not for the whole game.",
+  "Dropping to 0 scouts in round 5 right after the best score reached 75.3 produced the only stall of the game, so keep at least one scout once the guesses are in the high-70s rather than cutting to zero.",
+  "A single flat round (round 5) was too short a stall to justify any change, and the solve came one round later with effort still low, so effort did not need to rise in this game."
  ]
 }

@@ -54,7 +54,7 @@ EXPERIMENT_CEILING = "high"
 rng = random.Random()
 MIN_GUESSES, MAX_GUESSES = 1, 10  # the model chooses the round size inside these bounds
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
-HAIKU_THINKING_BUDGET = 8000  # Haiku 4.5 has no adaptive thinking; the other models think adaptively
+HAIKU_THINKING_BUDGET = 8000  # Haiku 4.x has no adaptive thinking or effort levels; the other models think adaptively
 
 # --model takes an alias (sonnet, opus, haiku, fable) or any full model ID, so new models need no code change.
 # Claude Code resolves an alias to its newest model itself. For the API backend, resolve_model() looks the
@@ -62,7 +62,7 @@ HAIKU_THINKING_BUDGET = 8000  # Haiku 4.5 has no adaptive thinking; the other mo
 MODELS = {
     "opus": "claude-opus-5-5",
     "sonnet": "claude-sonnet-5-5",
-    "haiku": "claude-haiku-4-5",
+    "haiku": "claude-haiku-5-5",
     "fable": "claude-fable-5-1",
 }
 
@@ -515,8 +515,9 @@ def get_distance(word: str) -> dict | None:
 
 # ---------- Claude ----------
 
-def is_haiku(model: str) -> bool:
-    return "haiku" in model.lower()
+def is_legacy_haiku(model: str) -> bool:
+    """Haiku 4.x: no effort levels, takes a thinking budget. Haiku 5.x and the 'haiku' alias (newest) take effort."""
+    return "haiku-4" in model.lower()
 
 
 _models_cache: tuple[float, list[dict]] = (0.0, [])
@@ -591,8 +592,8 @@ def call_claude_cli(args, system: str, prompt: str, schema: dict, effort: str) -
            "--settings", '{"alwaysThinkingEnabled": true}',  # extended thinking always on
            "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
     env = dict(os.environ)
-    if is_haiku(args.model):
-        env["MAX_THINKING_TOKENS"] = str(HAIKU_THINKING_BUDGET)  # Haiku needs an explicit thinking budget
+    if is_legacy_haiku(args.model):
+        env["MAX_THINKING_TOKENS"] = str(HAIKU_THINKING_BUDGET)  # Haiku 4.x needs an explicit thinking budget
     else:
         cmd += ["--effort", effort]
     proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
@@ -611,7 +612,7 @@ def call_claude_cli(args, system: str, prompt: str, schema: dict, effort: str) -
 def effort_ok(model: str) -> bool:
     """Does this model have an effort level a supervisor can adjust?"""
     provider, name = providers.split_model(model)
-    return providers.effort_supported(provider, name) if provider else not is_haiku(model)
+    return providers.effort_supported(provider, name) if provider else not is_legacy_haiku(model)
 
 
 def call_model(client, args, system: str, prompt: str, schema: dict, effort: str) -> dict:
@@ -632,7 +633,7 @@ def call_model(client, args, system: str, prompt: str, schema: dict, effort: str
         raise RuntimeError("Claude through the API needs the anthropic package: pip install anthropic")
     client = client or anthropic.Anthropic()  # reads ANTHROPIC_API_KEY (or an `ant auth login` profile)
     output_config = {"format": {"type": "json_schema", "schema": schema}}
-    if is_haiku(args.model):  # Haiku 4.5 rejects effort and needs a thinking budget
+    if is_legacy_haiku(args.model):  # Haiku 4.x rejects effort and needs a thinking budget
         thinking = {"type": "enabled", "budget_tokens": HAIKU_THINKING_BUDGET}
     else:
         output_config["effort"] = effort
